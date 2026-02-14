@@ -1,0 +1,577 @@
+
+REWIND
+The Intelligent Life Scheduler
+ 
+
+TreeHacks 2026  •  February 13–15  •  Stanford University
+Technical Specification & Execution Plan
+
+PRIMARY TARGET
+Fetch.ai  —  Best Overall AI Agent Solution ($2,500)
+Fetch.ai  —  Best Multi-Agent Workflow ($1,500)
+Fetch.ai  —  Most Impactful Real-World Use Case ($1,000)
+
+SECONDARY TARGETS
+Grand Prize  •  Most Technically Complex  •  Most Impactful  •  Greylock Best Multi-Turn Agent
+
+“Your life runs on an operating system, but nobody built the kernel.”
+
+1. Executive Summary
+Rewind is an AI-powered life operating system that applies real OS scheduling theory—short-term, medium-term, and long-term schedulers—to human task management. It detects disruptions in real-time, autonomously reschedules your day, and executes low-cognitive busywork on your behalf through a coordinated network of Fetch.ai agents deployed to Agentverse.
+
+The Core Insight: Every productivity tool helps you make a plan. None of them help when the plan breaks. Rewind is the only system that detects disruption, absorbs the cognitive load of replanning, and takes autonomous action to recover your day.
+
+What Makes This Win:
+	•	Multi-Agent Orchestration on Agentverse: 6 specialized uAgents, each with Chat Protocol for ASI:One discoverability, coordinating via typed protocols to turn natural language intent into real schedule outcomes.
+	•	Disruption-First Design: The only system that continuously monitors real-time context (calendar, email, Slack), classifies disruptions by severity, and autonomously re-coordinates agents to recover your day.
+	•	Behavioral Profiling: A dedicated Profiler Agent learns your implicit patterns—peak hours, estimation bias, distraction triggers, energy curves—and feeds this intelligence into every scheduling decision.
+	•	Autonomous Task Execution: GhostWorker agent handles delegatable busywork (email replies, Slack drafts, Uber bookings, appointment cancellations) through real browser automation—with user approval via voice or UI.
+	•	Built-in Monetization: Payment Protocol on GhostWorker enables per-task micro-payments, directly addressing Fetch.ai’s monetization judging criterion.
+	•	Real Impact: Built for ADHD but universally applicable. 10%+ of adults have ADHD. No existing tool handles disruption recovery. This is the “curb cut effect” of productivity.
+
+2. Fetch.ai Judging Criteria Alignment
+Every judging criterion mapped to a concrete implementation detail and a piece of demo evidence judges can verify live.
+
+Criterion (Weight)
+Our Implementation
+Demo Evidence
+Functionality & Technical Implementation (25%)
+6 uAgents communicate via typed Model messages in real-time. Scheduler Kernel runs MLFQ priority queues + hash-table task buffer. GhostWorker automates real browser tasks. Complete pipeline: intent → plan → monitor → adapt → execute.
+Live: trigger calendar disruption → watch agents coordinate in terminal logs → see schedule re-optimize on frontend → watch GhostWorker draft email in real Gmail.
+Use of Fetch.ai Technology (20%)
+All agents registered on Agentverse with mailbox=True. Chat Protocol on every agent for ASI:One compatibility. Payment Protocol on GhostWorker. Agents discoverable via ASI:One Chat. README files optimized for Agentverse search ranking.
+Show Agentverse dashboard with 6 registered agents. Open ASI:One → query “find a scheduling agent” → our Scheduler Kernel appears. Trigger GhostWorker task → show payment receipt.
+Innovation & Creativity (20%)
+OS scheduling theory (LTS/MTS/STS) adapted for human cognition—completely novel. Profiler Agent learns implicit behavioral patterns no user ever articulates. Energy-aware scheduling treats humans as non-uniform compute resources.
+Architecture diagram: Linux process scheduler vs. Rewind life scheduler side-by-side. Show Profiler Agent responding to “What are my peak hours?” with learned data.
+Real-World Impact & Usefulness (20%)
+ADHD affects 366M+ adults globally. No existing tool detects disruption AND recovers from it. Our system reduces cognitive load by automating replanning and executing delegatable tasks. Competitive matrix shows Rewind is uncontested.
+Show competitive matrix: Rewind vs. Motion/Reclaim/Tiimo—no other tool has disruption detection, auto-reschedule, or autonomous execution. Walk through time-saved calculation.
+User Experience & Presentation (15%)
+Clean river-timeline UI with animated schedule swaps. Split-screen demo view showing agent coordination in real-time. Story-driven 3–4 minute demo. Voice interaction via web-based voice input.
+Polished Next.js frontend deployed on Vercel. Smooth swap animations. Clear narrative arc.
+
+3. Multi-Agent Architecture
+Every agent is built with Fetch.ai’s uAgents framework, deployed to Agentverse, implements Chat Protocol for ASI:One discoverability, and communicates with other agents via typed Model messages. This is a genuine multi-agent system—not a monolithic LLM with tool calls.
+
+3.1 Agent Registry
+Agent
+Role
+Inputs
+Outputs
+ASI:One Discoverable
+Context Sentinel
+Fuses real-time signals from calendar, email, Slack into a unified context stream.
+Google Calendar API, Gmail API, Slack webhooks
+ContextChangeEvent (meeting_ended_early, new_urgent_email, schedule_conflict)
+Yes — “What’s happening on my calendar?”
+Profiler Agent
+Learns implicit behavioral patterns. Builds and refines a user profile for schedule optimization.
+Task completion logs, schedule adherence data, time-of-day patterns
+UserProfile (peak_hours, avg_task_durations, energy_curve, adherence_score, distraction_patterns)
+Yes — “What are my most productive hours?”
+Disruption Detector
+Classifies context changes by severity. Determines if rescheduling is needed.
+ContextChangeEvent from Sentinel
+DisruptionEvent (severity, affected_task_ids, freed_minutes, recommended_action)
+Yes — “What disruptions happened today?”
+Scheduler Kernel
+Implements LTS/MTS/STS pipeline. The brain. Makes all scheduling decisions.
+DisruptionEvent, UserProfile, task buffer, EnergyLevel
+UpdatedSchedule, SwapOperations, DelegationQueue
+Yes — “Optimize my schedule for today”
+GhostWorker
+Autonomously executes delegatable tasks via browser automation. Drafts for review.
+DelegationQueue from Kernel
+TaskCompletionConfirmation, DraftedContent (emails, messages)
+Yes — “Draft a reply to my latest email”
+Energy Monitor
+Infers user energy level from behavioral signals and time-of-day patterns.
+Task completion velocity, time of day, break patterns, user-reported mood
+EnergyLevel (1–5, confidence, source)
+Yes — “What’s my current energy level?”
+
+3.2 Inter-Agent Communication Flow
+All communication uses Fetch.ai’s typed message protocol. Messages are uAgents Model subclasses with schema validation.
+
+Primary Flow (Disruption Recovery):
+	•	Context Sentinel monitors Google Calendar, Gmail, Slack APIs. Detects a calendar change (meeting extended 45 min). Emits ContextChangeEvent to Disruption Detector.
+	•	Disruption Detector analyzes the event. Queries Profiler Agent: “Is this user typically affected by meeting overruns?” Classifies severity as “major” (4 tasks cascaded). Emits DisruptionEvent to Scheduler Kernel.
+	•	Scheduler Kernel receives DisruptionEvent. Queries Energy Monitor for current energy_level (returns 4/5). Queries Profiler Agent for peak_hours ([14, 15]) and avg_task_durations. Runs the MTS swap engine.
+	•	MTS swaps: gym → tomorrow’s buffer (non-critical), CS229 pset → 1pm slot (peak focus time per Profiler, deadline tomorrow). STS re-optimizes remaining task order using MLFQ priority queues.
+	•	Kernel emits UpdatedSchedule to frontend (WebSocket push) and DelegationQueue to GhostWorker (3 emails flagged as automatable based on Profiler’s automation_comfort score).
+	•	GhostWorker drafts 3 email replies in headless browser. Sends TaskCompletionConfirmation to Kernel. User reviews drafts via UI or voice, approves, and GhostWorker clicks Send in real Gmail.
+
+3.3 ASI:One Integration
+Every agent implements Chat Protocol (ChatMessage, ChatAcknowledgement, TextContent, EndSessionContent) and is registered on Agentverse with publish_manifest=True. This means:
+	•	Users can discover any Rewind agent through ASI:One Chat by describing what they need.
+	•	ASI:One routes queries to the most appropriate agent based on README descriptions.
+	•	Agents respond with structured, useful answers—not just “I exist.”
+	•	This transforms Rewind from a closed product into discoverable services in the Fetch.ai ecosystem.
+
+3.4 Monetization via Payment Protocol
+GhostWorker implements Fetch.ai’s Payment Protocol. Each autonomous task execution has a micro-cost, creating a real revenue path within the Fetch.ai ecosystem:
+	•	Basic email/Slack drafts: 0.001 FET per draft
+	•	Complex automation (Uber booking, appointment cancellation): 0.01 FET per action
+	•	Subscription tier: unlimited basic automation for 5 FET/month
+	•	Payment flow: buyer agent (user’s wallet) sends RequestPayment → GhostWorker confirms receipt → executes task → returns result
+
+4. Typed Message Models
+All inter-agent messages are uAgents Model subclasses. These provide schema validation, serialization, and make agents composable across the Fetch.ai ecosystem.
+
+from uagents import Model
+ 
+class ContextChangeEvent(Model):
+    event_type: str          # meeting_ended_early | new_email | schedule_conflict | task_completed
+    source: str              # google_calendar | gmail | slack
+    timestamp: str           # ISO 8601
+    affected_task_ids: list  # task IDs impacted
+    metadata: dict           # source-specific data (new end time, email subject, etc.)
+ 
+class UserProfile(Model):
+    peak_hours: list         # [9, 10, 14, 15] (24h format)
+    avg_task_durations: dict # {'email': 5, 'deep_work': 52, 'admin': 15}
+    energy_curve: list       # 24-element array: predicted energy per hour
+    adherence_score: float   # 0.0-1.0, how well user follows schedule
+    distraction_patterns: dict # {'slack_notification': 0.7, 'phone_check': 0.4}
+    estimation_bias: float   # >1.0 means user underestimates duration
+    automation_comfort: dict # {'email': 0.9, 'slack': 0.8, 'booking': 0.5}
+ 
+class DisruptionEvent(Model):
+    severity: str            # minor | major | critical
+    affected_task_ids: list
+    freed_minutes: int       # positive = gained time, negative = lost time
+    recommended_action: str  # swap_in | swap_out | reschedule_all | delegate
+    context_summary: str     # human-readable explanation
+ 
+class EnergyLevel(Model):
+    level: int               # 1-5
+    confidence: float        # 0.0-1.0
+    source: str              # inferred | user_reported | time_based
+ 
+class SwapOperation(Model):
+    action: str              # swap_in | swap_out | preempt | delegate
+    task_id: str
+    reason: str              # human-readable
+    new_time_slot: str       # ISO 8601 start time (None if swapped out)
+ 
+class DelegationTask(Model):
+    task_id: str
+    task_type: str           # email_reply | slack_message | uber_book | cancel_appointment
+    context: dict            # all info needed: recipient, thread, tone, constraints
+    approval_required: bool  # True = draft only, False = auto-execute
+    max_cost_fet: float      # spending limit for this task
+ 
+class TaskCompletion(Model):
+    task_id: str
+    status: str              # drafted | executed | failed
+    result: dict             # output data (draft text, confirmation, error)
+    cost_fet: float          # actual cost charged
+
+5. The OS Scheduling Engine
+The central technical innovation. A three-tier scheduling system modeled directly on operating system process scheduling, executed by the Scheduler Kernel agent. This is not a metaphor—it’s a direct implementation.
+
+5.1 Three-Tier Architecture
+Component
+OS Analogy
+Rewind Implementation
+Trigger
+Long-Term Scheduler (LTS)
+Job Scheduler: admits processes from disk to ready queue
+Pulls tasks from the Task Buffer (hash table in Redis) into the daily view based on deadline pressure, energy fit, and time availability.
+Daily planning (morning/evening) or on user request
+Medium-Term Scheduler (MTS)
+Swapper: moves processes between RAM and disk
+Swaps tasks in/out of today’s active schedule. Class ended early? MTS pulls from buffer. Meeting ran over? MTS swaps tasks back.
+On every ContextChangeEvent (calendar delta, free-time detection, energy shift)
+Short-Term Scheduler (STS)
+CPU Scheduler: picks next process from ready queue
+Optimizes ordering of today’s tasks using MLFQ priority queues. Handles preemption for urgent arrivals.
+Continuously (every context signal, every few minutes)
+
+5.2 Task Buffer (Hash Table)
+Redis-backed hash table. Each task’s bucket is computed from three weighted dimensions:
+
+Dimension
+Weight
+Rationale
+Deadline Urgency (D)
+0.45
+Inverse of (deadline − now). Tasks near deadlines surface first.
+Estimated Execution Time (E)
+0.30
+Enables bin-packing: shorter tasks fill gaps efficiently (SJF-inspired). Adjusted by Profiler’s estimation_bias.
+Preferred Start Date (P)
+0.25
+User intent signal. If user says “I want to do this Thursday,” respect it.
+
+Hash Function: hash(task) = floor(D × 0.45 + E × 0.30 + P × 0.25) mod BUCKET_COUNT
+Similar tasks cluster in the same bucket → O(1) bucket lookup + O(k) scan within bucket when the MTS needs to find a task that “fits” an available time slot.
+
+5.3 MTS: The Swap Engine
+SWAP-IN Triggers (Buffer → Active Schedule):
+	•	Free time detected: calendar event ended early, cancelled meeting, unexpected gap
+	•	Energy surplus: user completed tasks faster than Profiler’s estimate
+	•	Deadline pressure: a buffered task’s deadline crossed the urgency threshold
+
+SWAP-OUT Triggers (Active Schedule → Buffer):
+	•	Time overflow: meeting ran over, cascading subsequent tasks
+	•	Energy deficit: task completion velocity dropped below Profiler’s baseline
+	•	Priority preemption: urgent task arrives, displaces lower-priority active tasks
+
+Swap Algorithm (when swap-in opportunity arises):
+	•	Query hash table for tasks where execution_time ≤ available_time
+	•	Filter by energy compatibility (Energy Monitor’s current level vs. task’s energy_cost)
+	•	Filter by Profiler’s peak_hours alignment (prefer high-cognitive tasks during peak windows)
+	•	Rank remaining candidates by deadline urgency (highest wins)
+	•	Insert selected task into active schedule, notify STS to re-optimize ordering
+
+5.4 STS: MLFQ Priority Queues
+Modified Multilevel Feedback Queue adapted for human tasks:
+	•	P0 (Urgent): Hard deadlines within 2 hours, external dependencies waiting on you
+	•	P1 (Important): Deadlines today, high-impact tasks, upstream blockers
+	•	P2 (Normal): Routine tasks, flexible deadlines, personal goals
+	•	P3 (Background): Nice-to-haves, low-energy fillers, delegatable to GhostWorker
+
+Preemptive Scheduling: If a P0 task arrives (e.g., urgent email from professor), the STS interrupts the current task, saves state (progress notes, cursor position), and context-switches. When the urgent task completes, the previous task resumes from saved state.
+
+5.5 Energy-Aware Scheduling
+Unlike OS schedulers that treat processes equally, Rewind models human energy as a depleting, recoverable resource. Each task has an energy_cost (1–5). The Energy Monitor provides energy_level in real-time. The STS enforces the constraint: never schedule energy_cost > energy_level. When energy is low, the STS pulls P3 filler tasks or delegates to GhostWorker.
+
+6. Profiler Agent: Behavioral Intelligence
+The Profiler is what makes Rewind’s scheduling genuinely intelligent rather than rule-based. It continuously learns how you actually work, not how you think you work.
+
+6.1 What It Learns
+Pattern
+Signals Analyzed
+Used By
+Peak Productivity Hours
+Task completion timestamps, focus session lengths, output quality by time-of-day
+Scheduler Kernel: places high-cognitive tasks in peak windows
+Task Duration Bias
+Estimated vs. actual duration across task types, tracked over 14-day window
+Scheduler Kernel: applies learned correction factor to time allocations
+Disruption Recovery
+Time to resume after interruption, which tasks get abandoned vs. returned to
+Disruption Detector: severity classification. MTS: swap priority decisions
+Energy Curve
+Completion velocity by hour, break frequency, caffeine/meal timing correlations
+Energy Monitor: baseline calibration. STS: within-priority ordering
+Schedule Adherence
+% started on time, % completed, common drift directions (early/late)
+Scheduler Kernel: padding estimates, buffer time insertion
+Automation Comfort
+GhostWorker drafts approved quickly vs. edited heavily vs. rejected, by task type
+GhostWorker: confidence threshold for auto-execute vs. draft-only per task type
+
+6.2 Learning Mechanism
+	•	Sliding window: last 14 days of data, exponential decay weighting (recent behavior matters more).
+	•	No cold-start problem: starts with population-level defaults, progressively personalizes.
+	•	Updates on every task completion event (not on a timer) for real-time adaptation.
+	•	Exposes Chat Protocol so user can ask: “What are my most productive hours?” or “How accurate are my time estimates?” directly via ASI:One.
+	•	Profile data persists in Supabase with per-user encryption. Never shared externally.
+
+7. GhostWorker: Autonomous Task Execution
+GhostWorker is the “holy shit” demo moment. When you’re overwhelmed or recovering from a disruption, GhostWorker handles your busywork using real browser automation.
+
+7.1 Automatable Task Types
+Task Type
+How It Works
+Approval Model
+Email Replies (routine)
+Navigates Gmail. Reads thread context. Composes reply matching user’s tone (from Profiler).
+Draft → User reviews → “Send it”
+Slack Messages
+Opens Slack web. Reads channel context. Drafts contextual response.
+Draft → User reviews → Approve
+Book Uber/Lyft
+If schedule shows you’ll be late for a reservation, auto-books ride to arrive on time.
+Notify with ETA + cost → User confirms → Book
+Cancel Appointments
+If conflict detected and cancellation avoids fee/penalty, cancels via provider’s web interface.
+Alert with reasoning + fee analysis → User confirms → Cancel
+Reschedule Meetings
+Proposes new time slots based on updated schedule. Sends calendar invite.
+Draft proposal → User approves → Send invite
+Notion/Doc Updates
+Updates project statuses, checks off completed items, adds meeting notes.
+Auto-execute (low risk, high Profiler comfort score)
+
+7.2 Execution Pipeline
+	•	Scheduler Kernel flags tasks as “delegatable” based on task type + Profiler’s automation_comfort score.
+	•	DelegationTask message sent to GhostWorker with full context (recipient, thread, tone constraints, spending limit).
+	•	GhostWorker spins up headless Chrome via Stagehand. Navigates real web interfaces.
+	•	All actions default to DRAFT mode. User reviews in the frontend or via voice.
+	•	User approves (“Send it”) or requests edit (“Make it more formal”). GhostWorker executes or re-drafts.
+	•	Payment Protocol charges micro-fee. TaskCompletion message returns to Kernel.
+
+7.3 Automation Classification Logic
+Not every task is automatable. The Scheduler Kernel uses a decision tree:
+	•	Is the task type in the automatable list? (email_reply, slack_message, uber_book, cancel_appointment, doc_update, meeting_reschedule)
+	•	Does the Profiler’s automation_comfort for this type exceed the threshold (default: 0.6)?
+	•	Is the task’s estimated cognitive load ≤ 2 (out of 5)?
+	•	Does the task have sufficient context for GhostWorker to act (e.g., email thread exists, recipient known)?
+If all four conditions pass, the task is delegated. Otherwise it stays in the active schedule for the user.
+
+8. Tech Stack
+Layer
+Technology
+Rationale
+Agent Framework
+Fetch.ai uAgents + Agentverse
+Native typed protocols, Almanac registration, ASI:One discoverability. Required for Fetch.ai prize.
+Agent Protocols
+Chat Protocol + Payment Protocol (uagents_core.contrib)
+Chat = ASI:One compatibility (mandatory). Payment = monetization (recommended by judges).
+LLM Reasoning
+ASI:One API (asi1.ai) for agent intelligence, Claude API as fallback
+ASI:One for ecosystem alignment. Claude for complex multi-step reasoning in Kernel.
+Scheduling Engine
+Custom Python: heapq priority queues + Redis hash table + MLFQ
+No existing scheduler handles energy-aware, profile-driven human task scheduling.
+Browser Automation
+Stagehand v3 (Browserbase) + headless Chrome
+Reliable AI-driven web navigation for GhostWorker demo.
+Voice Input
+Web Speech API (browser-native STT) + Whisper fallback
+Zero-dependency voice input for demo. No hardware required.
+Backend
+FastAPI (Python) + WebSocket for real-time
+Python aligns with uAgents. FastAPI async performance. WebSocket for live schedule pushes.
+Frontend
+Next.js + React + TailwindCSS on Vercel
+River timeline UI. Fast iteration. Vercel for instant deploys.
+Context APIs
+Google Calendar, Gmail, Slack APIs
+Real data sources for real disruption detection.
+Data Layer
+Redis (task buffer + pub/sub) + Supabase (profiles + persistence)
+Redis for O(1) hash ops + real-time messaging. Supabase for user data.
+
+9. 36-Hour Execution Plan
+Split by Dev A (backend + agents) and Dev B (frontend + automation + infra). Fetch.ai integration is woven throughout—agents register on Agentverse from Hour 1, not bolted on at the end. Demo-blocking items first. Polish last.
+
+Phase 1: Foundation (Hours 0–6)
+Hours
+Dev A (Backend / Agents)
+Dev B (Frontend / Automation)
+0–1
+Repo init. Python venv. pip install uagents. Agentverse account + API keys. Supabase project. Redis instance (Upstash or local). Google Calendar + Gmail OAuth credentials.
+Next.js scaffold. Vercel deploy. TailwindCSS. WebSocket client skeleton. River timeline component scaffold.
+1–3
+Context Sentinel agent: integrate Google Calendar API, poll for changes, emit ContextChangeEvent. Register on Agentverse with Chat Protocol + mailbox=True. Test ASI:One discoverability.
+Task card components. Color-coded priority indicators (P0=red, P1=orange, P2=blue, P3=gray). Schedule day-view layout. Connect WebSocket to receive schedule updates from backend.
+3–6
+Disruption Detector agent: receive ContextChangeEvent, classify severity using rules + LLM reasoning, emit DisruptionEvent. Register on Agentverse. Scheduler Kernel agent: receive DisruptionEvent, placeholder scheduling (swap affected tasks to buffer).
+Schedule swap animations (task cards sliding in/out with color transitions). Split-screen layout: schedule LEFT, agent activity log RIGHT. Voice input via Web Speech API → send commands to backend.
+
+Milestone: Calendar change → Sentinel → Detector → Kernel → frontend updates. 3 agents on Agentverse. Voice captures commands. Basic UI renders schedule.
+
+Phase 2: Core Intelligence (Hours 6–18)
+Hours
+Dev A (Backend / Agents)
+Dev B (Frontend / Automation)
+6–10
+Task Buffer: Redis hash table with composite key. LTS implementation (daily planning pull). MTS swap-in/swap-out logic triggered by DisruptionEvent. Priority queue data structures (heapq).
+GhostWorker browser automation: Stagehand + headless Chrome. Automate Gmail: open compose, fill fields, write draft. Show live browser session in split-screen. Draft review UI component.
+10–14
+STS: MLFQ priority queues (P0–P3). Energy Monitor agent: time-of-day heuristics + task velocity tracking, emit EnergyLevel. Register on Agentverse. Wire energy_level into STS scheduling constraint.
+GhostWorker expansion: Slack draft automation. Notion status update. Appointment cancellation flow (navigate provider site, find cancel button, execute). Draft approval flow in UI (approve/edit/reject buttons).
+14–18
+Profiler Agent: track task completions, compute peak_hours + estimation_bias + automation_comfort. Register on Agentverse. Full pipeline integration: Sentinel → Detector → Kernel (queries Profiler + Energy Monitor) → GhostWorker → Kernel update.
+Full pipeline integration on frontend: disruption triggers schedule redraw + swap animation + GhostWorker activity panel. Slack API integration for Context Sentinel. UI polish pass 1: spacing, typography, loading states.
+
+Milestone: Full demo pipeline works. All 6 agents on Agentverse. Calendar disruption triggers rescheduling + GhostWorker drafts. Profiler provides real data. UI is demo-ready (rough).
+
+Phase 3: Polish & Prize Lock (Hours 18–30)
+Hours
+Dev A (Backend / Agents)
+Dev B (Frontend / Automation)
+18–22
+Payment Protocol on GhostWorker: implement buyer/seller flow, test with demo wallet. Ensure all 6 agents have detailed README files on Agentverse (keyword-rich for discoverability). Test all agents via ASI:One Chat.
+UI polish: swap animations (smooth easing), priority color system, energy indicator, time-saved counter. Mobile responsive. Dark mode. Agent activity log with real-time updates.
+22–26
+Edge case hardening: rapid successive disruptions, concurrent swaps, energy model boundaries, Profiler with sparse data. Gmail API integration for Context Sentinel (new email detection).
+Uber booking automation (stretch). Calendar rescheduling automation (stretch). Demo flow scripting: set up exact scenario data (Sarah’s schedule, timed calendar change trigger).
+26–30
+Demo rehearsal x5. Fix bugs found during rehearsal. Record backup demo video with screen capture + voiceover.
+Demo rehearsal x5. UI bug fixes. Devpost content: screenshots, architecture diagram, description. GitHub README with agent names + addresses + Innovation Lab badges.
+
+Milestone: Payment Protocol live. ASI:One discovery works. Polished UI. Rehearsed demo. Backup video recorded. Devpost draft complete.
+
+Phase 4: Ship (Hours 30–36)
+	•	30–32: Final bug fixes. Record backup demo video (screen + voice, 3–5 min). Ensure all agents are online and responsive on Agentverse.
+	•	32–34: Write Devpost submission. Add Innovation Lab badges to README. Architecture diagram. Agent addresses table. Screenshots of Agentverse dashboard + ASI:One discovery.
+	•	34–36: Final demo rehearsals. Prepare per-prize talking points (Fetch.ai primary, general secondary). Submit Devpost. Submit to prize tracks (3 Fetch.ai + up to 7 secondary).
+
+10. Demo Script (3–4 Minutes)
+Story-driven. Not a feature tour. Every beat demonstrates a specific judging criterion.
+
+[0:00–0:30] Setup
+“Meet Sarah. Stanford junior, ADHD. She wakes up with a perfect plan: 9am lecture, 10:30 study group, noon gym, 2pm CS229 pset, 4pm office hours. By 11am, her plan is already destroyed.”
+[Screen: Sarah’s clean morning schedule in the river timeline UI.]
+[Judges see: Polished UI, clear schedule visualization = UX criterion]
+
+[0:30–1:15] The Disruption
+“Her 10:30 meeting gets extended to noon. Watch what happens.”
+	•	[Trigger calendar event extension. Context Sentinel detects change.]
+	•	[Agent log panel shows: Sentinel → ContextChangeEvent → Disruption Detector]
+	•	[Detector classifies: severity=major, 4 tasks affected, -90 minutes]
+	•	[Kernel queries Profiler: peak_hours=[14,15]. Queries Energy Monitor: level=4.]
+	•	[UI animates: 4 task cards turn yellow. MTS swaps gym out, CS229 slides to 1pm slot.]
+[Judges see: Real-time agent coordination, typed messages, intelligent scheduling = Functionality + Innovation criteria]
+
+[1:15–2:15] GhostWorker
+“While Sarah processes the schedule change, watch the right panel.”
+	•	[Split screen: LEFT = new optimized schedule. RIGHT = GhostWorker browser sessions.]
+	•	[Stagehand navigates to real Gmail, types a contextual reply to professor’s email.]
+	•	[Second tab: drafts Slack message to study group about rescheduled meeting.]
+	•	[User clicks “Review Draft” in UI. Reads it. Clicks “Send.” Browser clicks Send in real Gmail.]
+[Judges see: Autonomous task execution, real browser automation, user-in-the-loop approval = Impact + Functionality criteria]
+
+[2:15–3:00] Fetch.ai Ecosystem
+“Let me show you how this lives in the Fetch.ai ecosystem.”
+	•	[Open ASI:One Chat. Type: “Find me an agent that optimizes daily schedules.”]
+	•	[ASI:One discovers our Scheduler Kernel. Click “Chat with Agent.” Ask it to optimize a schedule.]
+	•	[Show Agentverse dashboard: 6 agents registered, Chat Protocol badges, interaction counts.]
+	•	[Show payment log: “GhostWorker charged 0.001 FET for that email draft.”]
+[Judges see: Agentverse registration, ASI:One discoverability, Payment Protocol = Use of Fetch.ai Technology criterion]
+
+[3:00–3:30] Payoff
+“In 2 minutes, 6 agents coordinated to detect a disruption, reschedule 4 tasks using OS-level algorithms, and autonomously handle 3 tasks. Sarah’s only action was clicking ‘Send.’”
+
+[Final screen: clean schedule, tasks-completed counter: 3, time saved: 25 min.]
+
+“Every productivity tool helps you make a plan. Rewind is the only one that helps when the plan breaks.”
+
+11. Submission Checklist
+Compliance with every Fetch.ai hackpack requirement, plus Devpost requirements.
+
+Fetch.ai Mandatory Requirements
+	•	All 6 agents registered on Agentverse with mailbox=True
+	•	Chat Protocol (chat_protocol_spec) implemented and manifest published on every agent
+	•	All agents categorized under Innovation Lab
+	•	README.md badge: ![tag:innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3)
+	•	README.md badge: ![tag:hackathon](https://img.shields.io/badge/hackathon-5F43F1)
+	•	Agent names and addresses listed in README.md
+	•	3–5 minute demo video uploaded
+
+Fetch.ai Recommended (Score Boosters)
+	•	Payment Protocol implemented on GhostWorker with working buyer/seller flow
+	•	Detailed README on each Agentverse agent page (capabilities, use cases, interaction modes, limitations)
+	•	ASI:One discoverability tested and demonstrated in video
+	•	Agent-to-agent communication demonstrated in video (show terminal logs)
+
+GitHub / Devpost
+	•	Public GitHub repo with complete source
+	•	README: architecture diagram, setup instructions, environment variables, API keys needed
+	•	README: table of all 6 agents with name, address, Agentverse link
+	•	Devpost: project description, prize track selections, team info, video link
+
+12. Risk Mitigation
+Risk
+Impact
+Mitigation
+Fallback
+Agentverse registration fails
+Agents not discoverable
+Register early (Hour 1–3). Test mailbox connectivity immediately after each agent.
+Run agents locally. Show Agentverse screenshots from earlier successful registration.
+ASI:One doesn’t discover our agents
+Can’t demo ecosystem integration
+Write keyword-rich README files. Test discoverability in Phase 3 (Hour 18–22).
+Pre-record ASI:One discovery video. Show manual query via Agentverse Chat.
+Stagehand fails on Gmail/Slack
+GhostWorker demo breaks
+Pre-test all target sites. Use deterministic CSS selectors where possible. Have backup email account.
+Pre-record GhostWorker executing one task. Show live for the simplest action only.
+Google Calendar API rate limits
+Sentinel can’t detect changes live
+Use webhooks (push), not polling. Cache calendar state locally.
+Manual trigger button in UI that simulates a calendar change event.
+Payment Protocol complexity
+Can’t demo monetization
+Implement minimal buyer/seller flow with fixed price. Test with local agents first.
+Show code + architecture. Explain monetization model verbally during Fetch.ai judging.
+Too many agents = too much latency
+Demo feels slow and awkward
+Pre-warm all agent connections before demo. Cache Profiler responses. Use Redis pub/sub for speed.
+Have manual override buttons that bypass slow agents and inject expected responses.
+
+13. Competitive Landscape
+Rewind occupies a completely uncontested position.
+
+Feature
+Motion
+Reclaim
+Tiimo
+Notion AI
+REWIND
+Auto-schedule
+✓
+✓
+✗
+✗
+✓
+Disruption detection
+✗
+✗
+✗
+✗
+✓
+Auto-reschedule on disruption
+✗
+✗
+✗
+✗
+✓
+Behavioral profiling
+✗
+✗
+✗
+✗
+✓
+Energy-aware scheduling
+✗
+Partial
+✗
+✗
+✓
+Autonomous task execution
+✗
+✗
+✗
+✗
+✓
+OS-level scheduling theory
+✗
+✗
+✗
+✗
+✓
+Multi-agent architecture
+✗
+✗
+✗
+✗
+✓
+Decentralized agent marketplace
+✗
+✗
+✗
+✗
+✓
+ADHD-specific design
+✗
+✗
+✓
+✗
+✓
+
+Key Takeaway: No existing tool detects disruptions AND recovers from them. No existing tool autonomously executes tasks on your behalf. No existing tool learns your behavioral patterns to improve scheduling. Rewind does all three, on a decentralized agent architecture.
+
+
+END OF SPECIFICATION
+
+Build the scheduler your brain needed but never had.
+Good luck. Ship it.
