@@ -354,11 +354,15 @@ async def update_energy(req: EnergyUpdateRequest):
     global _energy_level
     _energy_level = max(1, min(5, req.level))
 
+    # Record user-reported energy for the Energy Monitor agent
+    from src.agents.energy_monitor import record_user_reported
+    r = _get_redis()
+    record_user_reported(_energy_level, r)
+
     # Auto-delegate P3 if energy critically low
     delegated = []
     if _energy_level <= 2:
         delegated_tasks = _sts.auto_delegate_p3(_energy_level)
-        r = _get_redis()
         for task in delegated_tasks:
             store_task(task, r)
         delegated = [t.task_id for t in delegated_tasks]
@@ -371,6 +375,19 @@ async def update_energy(req: EnergyUpdateRequest):
     await manager.broadcast(msg)
 
     return {"energy_level": _energy_level, "delegated": delegated}
+
+
+@app.get("/api/energy/status")
+async def get_energy_status():
+    """Get current inferred energy level from Energy Monitor."""
+    from src.agents.energy_monitor import compute_energy
+    r = _get_redis()
+    energy = compute_energy(r)
+    return {
+        "level": energy.level,
+        "confidence": energy.confidence,
+        "source": energy.source,
+    }
 
 
 @app.get("/api/backlog")

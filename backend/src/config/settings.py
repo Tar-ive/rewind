@@ -40,6 +40,9 @@ DISRUPTION_DETECTOR_SEED: str = os.getenv(
 SCHEDULER_KERNEL_SEED: str = os.getenv(
     "SCHEDULER_KERNEL_SEED", "rewind-scheduler-kernel-seed-v1"
 )
+ENERGY_MONITOR_SEED: str = os.getenv(
+    "ENERGY_MONITOR_SEED", "rewind-energy-monitor-seed-v1"
+)
 
 # Agent addresses (auto-generated from seeds, override for production)
 SCHEDULER_KERNEL_ADDRESS: str = os.getenv("SCHEDULER_KERNEL_ADDRESS", "")
