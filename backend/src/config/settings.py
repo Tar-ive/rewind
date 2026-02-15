@@ -100,6 +100,11 @@ PROFILER_DRIFT_THRESHOLD: float = float(os.getenv("PROFILER_DRIFT_THRESHOLD", "0
 AGENT_DEPLOY_MODE: str = os.getenv("AGENT_DEPLOY_MODE", "local")
 AGENT_ENDPOINT_BASE: str = os.getenv("AGENT_ENDPOINT_BASE", "http://localhost")
 
+# ── ElevenLabs Configuration ──────────────────────────────────────────────
+
+ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
+ELEVENLABS_AGENT_ID: str = os.getenv("ELEVENLABS_AGENT_ID", "")
+
 # ── Server Configuration ─────────────────────────────────────────────────
 
 SERVER_HOST: str = os.getenv("SERVER_HOST", "0.0.0.0")

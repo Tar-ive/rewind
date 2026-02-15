@@ -23,7 +23,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src.config.settings import REDIS_URL, TASK_BUCKET_COUNT
+from src.config.settings import REDIS_URL, TASK_BUCKET_COUNT, ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID
 from src.models.task import Task, TaskStatus
 from src.engine.task_buffer import get_active_tasks, get_backlog_tasks, store_task
 from src.engine.lts import plan_day
@@ -1150,6 +1150,39 @@ async def reject_draft(draft_id: str):
     logger.info("Rejection published for draft %s", draft_id)
 
     return {"status": "rejection_sent", "draft_id": draft_id}
+
+
+# ── ElevenLabs Signed URL ─────────────────────────────────────────────────
+
+@app.get("/api/elevenlabs/signed-url")
+async def get_elevenlabs_signed_url():
+    """Generate a signed WebSocket URL for ElevenLabs Conversational AI.
+
+    Keeps the ELEVENLABS_API_KEY server-side. The frontend uses the returned
+    signed URL to open a WebSocket directly to ElevenLabs.
+    """
+    import httpx
+
+    api_key = ELEVENLABS_API_KEY
+    agent_id = ELEVENLABS_AGENT_ID
+
+    if not api_key or not agent_id:
+        return {"error": "ELEVENLABS_API_KEY or ELEVENLABS_AGENT_ID not configured"}, 500
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id={agent_id}",
+                headers={"xi-api-key": api_key},
+                timeout=10.0,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return {"signed_url": data.get("signed_url", "")}
+            return {"error": f"ElevenLabs returned {resp.status_code}: {resp.text}"}, resp.status_code
+    except Exception as exc:
+        logger.error("Failed to get ElevenLabs signed URL: %s", exc)
+        return {"error": str(exc)}, 500
 
 
 if __name__ == "__main__":

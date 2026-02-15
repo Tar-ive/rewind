@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import AgentActivityLog from "@/components/AgentActivityLog";
 import DraftReview from "@/components/DraftReview";
+import VoiceAgent from "@/components/VoiceAgent";
 import type { Draft } from "@/components/DraftReview";
 import { useScheduleStore } from "@/lib/useScheduleStore";
 import { useWebSocket } from "@/lib/useWebSocket";
@@ -118,6 +119,9 @@ export default function Home() {
     (t) => t.status === "scheduled" || t.status === "in_progress"
   );
   const delegatedTasks = store.tasks.filter((t) => t.status === "delegated");
+
+  // Memoize draft IDs for voice agent context
+  const draftIds = useMemo(() => store.drafts.map((d) => d.id), [store.drafts]);
 
   return (
     <div className="flex h-screen flex-col">
@@ -283,6 +287,9 @@ export default function Home() {
           <AgentActivityLog entries={store.agentLog} />
         </div>
       </div>
+
+      {/* ElevenLabs Voice Agent — floating mic */}
+      <VoiceAgent draftIds={draftIds} />
     </div>
   );
 }
