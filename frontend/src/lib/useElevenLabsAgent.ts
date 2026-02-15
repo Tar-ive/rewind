@@ -242,14 +242,17 @@ export function useElevenLabsAgent(options: UseElevenLabsAgentOptions = {}) {
   // ── ElevenLabs conversation hook ──────────────────────────────────────
 
   const conversation = useConversation({
-    onConnect: () => {
+    onConnect: ({ conversationId }) => {
+      console.log("[ElevenLabs] Connected, conversationId:", conversationId);
       setAgentStatus("connected");
       setError(null);
     },
     onDisconnect: () => {
+      console.log("[ElevenLabs] Disconnected");
       setAgentStatus("disconnected");
     },
     onMessage: (message) => {
+      console.log("[ElevenLabs] onMessage:", message);
       // Handle transcript messages from the agent
       if (message && typeof message === "object") {
         const msg = message as unknown as Record<string, unknown>;
@@ -260,10 +263,19 @@ export function useElevenLabsAgent(options: UseElevenLabsAgentOptions = {}) {
         }
       }
     },
-    onError: (error) => {
-      console.error("ElevenLabs error:", error);
+    onError: (error, context) => {
+      console.error("[ElevenLabs] Error:", error, context);
       setError(typeof error === "string" ? error : "Voice agent error");
       setAgentStatus("disconnected");
+    },
+    onStatusChange: ({ status }) => {
+      console.log("[ElevenLabs] Status changed:", status);
+    },
+    onModeChange: ({ mode }) => {
+      console.log("[ElevenLabs] Mode changed:", mode);
+    },
+    onDebug: (debugEvent) => {
+      console.log("[ElevenLabs] Debug:", debugEvent);
     },
     clientTools,
   });
@@ -276,7 +288,16 @@ export function useElevenLabsAgent(options: UseElevenLabsAgentOptions = {}) {
     setTranscript([]);
 
     try {
+      // Check mic permissions first
+      try {
+        const permResult = await navigator.permissions.query({ name: "microphone" as PermissionName });
+        console.log("[ElevenLabs] Mic permission state:", permResult.state);
+      } catch {
+        console.log("[ElevenLabs] Could not query mic permission (normal on some browsers)");
+      }
+
       // Get signed URL from our backend
+      console.log("[ElevenLabs] Fetching signed URL...");
       const res = await fetch(`${API_URL}/api/elevenlabs/signed-url`);
       const data = await res.json();
 
@@ -286,12 +307,25 @@ export function useElevenLabsAgent(options: UseElevenLabsAgentOptions = {}) {
         return;
       }
 
+      console.log("[ElevenLabs] Got signed URL, starting session...");
+
       // Start ElevenLabs conversation with signed URL
-      await conversation.startSession({
+      const sessionId = await conversation.startSession({
         signedUrl: data.signed_url,
       });
+
+      console.log("[ElevenLabs] Session started successfully, id:", sessionId);
+
+      // Verify mic access after session starts
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const mics = devices.filter(d => d.kind === "audioinput");
+        console.log("[ElevenLabs] Available microphones:", mics.map(m => `${m.label} (${m.deviceId.slice(0, 8)})`));
+      } catch {
+        console.log("[ElevenLabs] Could not enumerate devices");
+      }
     } catch (err) {
-      console.error("Failed to start ElevenLabs session:", err);
+      console.error("[ElevenLabs] Failed to start session:", err);
       setError("Failed to connect to voice agent");
       setAgentStatus("disconnected");
     }
