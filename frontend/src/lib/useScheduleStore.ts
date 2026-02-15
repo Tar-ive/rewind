@@ -9,14 +9,17 @@ import type {
   WSMessage,
   UpdatedSchedule,
   DisruptionEvent,
+  ReminderNotification,
 } from "@/types/schedule";
 
 interface ScheduleState {
   tasks: Task[];
+  backlog: Task[];
   energy: EnergyLevel | null;
   swappingTaskIds: Set<string>;
   swapDirections: Map<string, "in" | "out">;
   lastDisruption: DisruptionEvent | null;
+  activeReminder: ReminderNotification | null;
   agentLog: AgentLogEntry[];
   drafts: Draft[];
 }
@@ -32,10 +35,12 @@ export interface AgentLogEntry {
 export function useScheduleStore(initialTasks: Task[] = []) {
   const [state, setState] = useState<ScheduleState>({
     tasks: initialTasks,
+    backlog: [],
     energy: null,
     swappingTaskIds: new Set(),
     swapDirections: new Map(),
     lastDisruption: null,
+    activeReminder: null,
     agentLog: [],
     drafts: [],
   });
@@ -101,6 +106,10 @@ export function useScheduleStore(initialTasks: Task[] = []) {
       ...prev,
       drafts: prev.drafts.filter((d) => d.id !== draftId),
     }));
+  }, []);
+
+  const addTask = useCallback((task: Task) => {
+    setState((prev) => ({ ...prev, tasks: [...prev.tasks, task] }));
   }, []);
 
   const setDrafts = useCallback((drafts: Draft[]) => {
@@ -196,6 +205,16 @@ export function useScheduleStore(initialTasks: Task[] = []) {
           addLogEntry("GhostWorker", status.message, "ghostworker");
           break;
         }
+        case "reminder": {
+          const notification = message.payload as ReminderNotification;
+          setState((prev) => ({ ...prev, activeReminder: notification }));
+          addLogEntry(
+            "Reminder Agent",
+            `${notification.title}: ${notification.message}`,
+            "info"
+          );
+          break;
+        }
         case "agent_activity": {
           const activity = message.payload as {
             agent: string;
@@ -216,9 +235,11 @@ export function useScheduleStore(initialTasks: Task[] = []) {
     ...state,
     handleWSMessage,
     addLogEntry,
+    addTask,
     addDraft,
     removeDraft,
     setDrafts,
     setTasks: (tasks: Task[]) => setState((prev) => ({ ...prev, tasks })),
+    setBacklog: (backlog: Task[]) => setState((prev) => ({ ...prev, backlog })),
   };
 }

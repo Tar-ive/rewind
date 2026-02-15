@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AgentActivityLog from "@/components/AgentActivityLog";
 import DraftReview from "@/components/DraftReview";
+import TaskInput from "@/components/TaskInput";
+import VoiceAgent from "@/components/VoiceAgent";
 import type { Draft } from "@/components/DraftReview";
 import { useScheduleStore } from "@/lib/useScheduleStore";
 import { useWebSocket } from "@/lib/useWebSocket";
-import { MOCK_TASKS } from "@/lib/mockData";
 import { WS_URL, API_URL } from "@/lib/constants";
 import { PRIORITY_CONFIG } from "@/lib/constants";
 import type { Task } from "@/types/schedule";
@@ -18,12 +19,29 @@ const SEVERITY_COLORS = {
 };
 
 export default function Home() {
-  const store = useScheduleStore(MOCK_TASKS);
+  const store = useScheduleStore([]);
+  const [backlogOpen, setBacklogOpen] = useState(true);
 
   const { status } = useWebSocket({
     url: WS_URL,
     onMessage: store.handleWSMessage,
   });
+
+  // Load real schedule + backlog + drafts from backend on mount
+  useEffect(() => {
+    async function loadSchedule() {
+      try {
+        const res = await fetch(`${API_URL}/api/schedule`);
+        const data = await res.json();
+        if (data.tasks?.length) store.setTasks(data.tasks);
+        if (data.backlog?.length) store.setBacklog(data.backlog);
+      } catch {
+        // WS will populate tasks
+      }
+    }
+    loadSchedule();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch existing pending drafts on mount
   useEffect(() => {
@@ -65,7 +83,6 @@ export default function Home() {
           "ghostworker"
         );
       }
-      // Relay approval to server → Redis → GhostWorker agent
       try {
         await fetch(`${API_URL}/api/ghostworker/drafts/${draftId}/approve`, {
           method: "POST",
@@ -75,7 +92,6 @@ export default function Home() {
       } catch {
         store.addLogEntry("GhostWorker", "Failed to send approval", "ghostworker");
       }
-      // Optimistically remove draft (will also be removed by WS event)
       store.removeDraft(draftId);
     },
     [store]
@@ -113,22 +129,17 @@ export default function Home() {
     [store]
   );
 
-  // Count tasks by status
+  // Split tasks
   const activeTasks = store.tasks.filter(
     (t) => t.status === "scheduled" || t.status === "in_progress"
   );
   const delegatedTasks = store.tasks.filter((t) => t.status === "delegated");
+  const draftIds = store.drafts.map((d) => d.id);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-zinc-800 px-6 py-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold tracking-tight">REWIND</h1>
-          <span className="text-xs text-zinc-600">
-            The Intelligent Life Scheduler
-          </span>
-        </div>
+      <header className="flex items-center justify-end border-b border-zinc-800 px-6 py-3">
         <div className="flex items-center gap-4">
           {store.energy && (
             <div className="flex items-center gap-2 text-xs text-zinc-400">
@@ -166,7 +177,7 @@ export default function Home() {
 
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Active tasks + disruption status */}
+        {/* Left: Tasks */}
         <div className="flex-1 overflow-y-auto border-r border-zinc-800 p-4 space-y-4">
           {/* Disruption banner */}
           {store.lastDisruption && (
@@ -199,10 +210,13 @@ export default function Home() {
             </div>
           )}
 
-          {/* Active task list */}
+          {/* Task input */}
+          <TaskInput />
+
+          {/* ── Today's Tasks ──────────────────────────────────────────── */}
           <div>
             <h2 className="text-sm font-semibold text-zinc-300 mb-3">
-              Active Tasks
+              Today
               <span className="ml-2 text-[10px] font-normal text-zinc-500">
                 {activeTasks.length} scheduled
                 {delegatedTasks.length > 0 &&
@@ -252,6 +266,43 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* ── Backlog / Long-term Tasks ──────────────────────────────── */}
+          <div>
+            <button
+              onClick={() => setBacklogOpen(!backlogOpen)}
+              className="flex items-center gap-2 text-sm font-semibold text-zinc-300 mb-3 hover:text-zinc-100 transition-colors"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                className={`transition-transform ${backlogOpen ? "rotate-90" : ""}`}
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+              Backlog
+              <span className="text-[10px] font-normal text-zinc-500">
+                {store.backlog.length} tasks
+              </span>
+            </button>
+            {backlogOpen && (
+              <div className="space-y-1.5">
+                {store.backlog.map((task) => (
+                  <BacklogTaskRow key={task.id} task={task} />
+                ))}
+                {store.backlog.length === 0 && (
+                  <p className="text-xs text-zinc-600 py-3 text-center">
+                    No backlog tasks. LTS/MTS will pull from here when scheduling.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right: Drafts + Agent Activity Log */}
@@ -283,6 +334,9 @@ export default function Home() {
           <AgentActivityLog entries={store.agentLog} />
         </div>
       </div>
+
+      {/* Voice Agent — floating mic */}
+      <VoiceAgent draftIds={draftIds} />
     </div>
   );
 }
@@ -327,6 +381,13 @@ function ActiveTaskRow({
         )}
       </div>
 
+      {/* Time */}
+      {task.start_time && (
+        <span className="text-[10px] text-zinc-500 whitespace-nowrap">
+          {new Date(task.start_time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        </span>
+      )}
+
       {/* Duration */}
       <span className="text-[10px] text-zinc-500 whitespace-nowrap">
         {task.estimated_duration}min
@@ -348,6 +409,26 @@ function ActiveTaskRow({
       {task.status === "in_progress" && (
         <span className="text-[10px] text-green-400">active</span>
       )}
+    </div>
+  );
+}
+
+function BacklogTaskRow({ task }: { task: Task }) {
+  const config = PRIORITY_CONFIG[task.priority];
+
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-lg border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 transition-all`}
+    >
+      <span className={`text-[10px] font-bold ${config.color} min-w-[20px]`}>
+        {task.priority}
+      </span>
+      <span className="text-xs text-zinc-400 flex-1 truncate">
+        {task.title}
+      </span>
+      <span className="text-[10px] text-zinc-600 whitespace-nowrap">
+        {task.estimated_duration}min
+      </span>
     </div>
   );
 }

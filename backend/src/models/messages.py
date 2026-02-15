@@ -108,3 +108,23 @@ class ProfileUpdateEvent(Model):
     changed_fields: list     # which profile fields changed
     magnitude: float         # 0.0-1.0 how much changed
     timestamp: str           # ISO 8601
+
+
+class ReminderNotification(Model):
+    """Emitted by Reminder Agent when user should be notified."""
+    reminder_type: str       # "upcoming_task" | "check_in" | "completion_check" | "transition"
+    task_id: str             # related task (empty string if general)
+    title: str               # short headline for the reminder
+    message: str             # LLM-generated natural language message
+    urgency: str             # "low" | "medium" | "high"
+    suggested_actions: list  # e.g. ["start_task", "snooze", "mark_complete"]
+    timestamp: str           # ISO 8601
+
+
+class VoiceCommand(Model):
+    """Received from iOS/frontend when user issues a voice command."""
+    command_type: str        # "complete_task" | "start_task" | "snooze_reminder" | "whats_next"
+    task_id: str             # relevant task (empty string if N/A)
+    payload: dict            # command-specific data (e.g. snooze_minutes)
+    source: str              # "ios" | "web" | "voice"
+    timestamp: str           # ISO 8601

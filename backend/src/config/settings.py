@@ -55,6 +55,9 @@ GHOST_WORKER_SEED: str = os.getenv(
 PROFILER_AGENT_SEED: str = os.getenv(
     "PROFILER_AGENT_SEED", "rewind-profiler-agent-seed-v1"
 )
+REMINDER_AGENT_SEED: str = os.getenv(
+    "REMINDER_AGENT_SEED", "rewind-reminder-agent-seed-v1"
+)
 
 # Agent addresses (auto-generated from seeds, override for production)
 DISRUPTION_DETECTOR_ADDRESS: str = os.getenv("DISRUPTION_DETECTOR_ADDRESS", "")
@@ -62,6 +65,7 @@ SCHEDULER_KERNEL_ADDRESS: str = os.getenv("SCHEDULER_KERNEL_ADDRESS", "")
 PROFILER_AGENT_ADDRESS: str = os.getenv("PROFILER_AGENT_ADDRESS", "")
 ENERGY_MONITOR_ADDRESS: str = os.getenv("ENERGY_MONITOR_ADDRESS", "")
 GHOST_WORKER_ADDRESS: str = os.getenv("GHOST_WORKER_ADDRESS", "")
+REMINDER_AGENT_ADDRESS: str = os.getenv("REMINDER_AGENT_ADDRESS", "")
 
 # Scheduling engine defaults
 TASK_BUCKET_COUNT: int = int(os.getenv("TASK_BUCKET_COUNT", "16"))
@@ -93,12 +97,27 @@ PROFILER_DECAY_FACTOR: float = float(os.getenv("PROFILER_DECAY_FACTOR", "0.85"))
 PROFILER_RECOMPUTE_INTERVAL: int = int(os.getenv("PROFILER_RECOMPUTE_INTERVAL", "1800"))  # 30 min
 PROFILER_DRIFT_THRESHOLD: float = float(os.getenv("PROFILER_DRIFT_THRESHOLD", "0.15"))
 
+# ── Reminder Agent Configuration ────────────────────────────────────────
+
+# Evaluation interval in seconds. The agent ticks every N seconds and uses
+# LLM reasoning to decide whether to actually send a reminder.
+REMINDER_EVAL_INTERVAL: int = int(os.getenv("REMINDER_EVAL_INTERVAL", "120"))
+
+# ── Anthropic API (direct LLM calls for Reminder Agent) ────────────────
+
+ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+
 # ── Agent Deployment ─────────────────────────────────────────────────────
 
 # Set to "agentverse" to deploy on Agentverse (uses mailbox, no local endpoint).
 # Set to "local" (default) for local dev with localhost endpoints.
 AGENT_DEPLOY_MODE: str = os.getenv("AGENT_DEPLOY_MODE", "local")
 AGENT_ENDPOINT_BASE: str = os.getenv("AGENT_ENDPOINT_BASE", "http://localhost")
+
+# ── ElevenLabs Configuration ──────────────────────────────────────────────
+
+ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
+ELEVENLABS_AGENT_ID: str = os.getenv("ELEVENLABS_AGENT_ID", "")
 
 # ── Server Configuration ─────────────────────────────────────────────────
 
