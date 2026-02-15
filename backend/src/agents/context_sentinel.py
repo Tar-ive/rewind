@@ -51,6 +51,7 @@ from src.config.settings import (
 )
 from src.models.messages import ContextChangeEvent
 from src.agents.protocols import create_chat_protocol
+from src.services.composio_service import get_composio_service as _get_direct_composio
 
 # Conditionally import uagents-composio-adapter for enhanced protocol support
 try:
@@ -482,84 +483,92 @@ def _try_parse_json_array(responses: List[str]) -> List[Dict]:
 
 
 async def _poll_calendar(user_context: Dict[str, Any]) -> List[Dict]:
-    """Poll Google Calendar via Composio MCP for upcoming events.
+    """Poll Google Calendar via Composio direct SDK for upcoming events.
 
-    Includes user context from Redis (active tasks, signals) to give
-    the MCP agent richer context for the extraction.
+    Uses ComposioService.list_events() — no LLM in the loop.
+    Falls back to MCP orchestrator if direct SDK fails.
     """
-    orchestrator = _get_orchestrator()
     now = datetime.now(timezone.utc)
     end = now + timedelta(hours=CALENDAR_LOOKAHEAD_HOURS)
 
-    # Build context summary from Redis data
-    task_summary = ""
-    if user_context.get("active_tasks"):
-        task_titles = [t.get("title", "unknown") for t in user_context["active_tasks"][:5]]
-        task_summary = f"\nUser's active tasks: {', '.join(task_titles)}"
-
-    prompt = f"""List all calendar events between {now.isoformat()} and {end.isoformat()}.{task_summary}
-
-Return ONLY a JSON array of events with fields:
-- id: event unique identifier
-- summary: event title
-- start: ISO 8601 start datetime
-- end: ISO 8601 end datetime
-- status: confirmed/cancelled/tentative
-- attendees: list of attendee emails
-
-If no events, return: []
-Return ONLY valid JSON, no other text."""
-
     try:
+        svc = _get_direct_composio()
+        result = svc.list_events(
+            time_min=now.isoformat(),
+            time_max=end.isoformat(),
+            max_results=50,
+        )
+        if result.get("successful", False):
+            data = result.get("data", result)
+            if isinstance(data, list):
+                return data
+            # Some responses wrap events in an 'items' key
+            if isinstance(data, dict) and "items" in data:
+                return data["items"]
+            return [data] if data else []
+        logger.warning("Direct calendar poll returned unsuccessful, falling back to MCP")
+    except Exception as exc:
+        logger.warning("Direct calendar poll failed (%s), falling back to MCP", exc)
+
+    # Fallback to MCP orchestrator
+    try:
+        orchestrator = _get_orchestrator()
         responses = await orchestrator.execute_operation(
-            prompt,
-            system_context=(
-                "You are a calendar data extraction agent. "
-                "Always return structured JSON arrays. No explanations or markdown."
-            ),
+            f"List all calendar events between {now.isoformat()} and {end.isoformat()}. "
+            "Return ONLY a JSON array with fields: id, summary, start, end, status, attendees.",
+            system_context="You are a calendar data extraction agent. Return only JSON.",
             max_iterations=3,
         )
         return _try_parse_json_array(responses)
     except Exception as exc:
-        logger.error("Calendar poll failed: %s", exc)
+        logger.error("Calendar poll failed (both direct and MCP): %s", exc)
         return []
 
 
 async def _poll_gmail(user_context: Dict[str, Any]) -> List[Dict]:
-    """Poll Gmail via Composio MCP for recent messages."""
-    orchestrator = _get_orchestrator()
+    """Poll Gmail via Composio direct SDK for recent messages.
+
+    Uses ComposioService.fetch_emails() — no LLM in the loop.
+    Falls back to MCP orchestrator if direct SDK fails.
+    """
     lookback = datetime.now(timezone.utc) - timedelta(hours=GMAIL_LOOKBACK_HOURS)
 
-    prompt = f"""List unread emails received after {lookback.isoformat()}.
-
-Return ONLY a JSON array of messages with fields:
-- id: message unique identifier
-- subject: email subject line
-- from: sender email address
-- snippet: first 100 characters of body
-- received_at: ISO 8601 timestamp
-- labels: list of label names
-
-If no new emails, return: []
-Return ONLY valid JSON, no other text."""
-
     try:
+        svc = _get_direct_composio()
+        query = f"after:{int(lookback.timestamp())}"
+        result = svc.fetch_emails(query=query, max_results=20)
+        if result.get("successful", False):
+            data = result.get("data", result)
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict) and "messages" in data:
+                return data["messages"]
+            return [data] if data else []
+        logger.warning("Direct Gmail poll returned unsuccessful, falling back to MCP")
+    except Exception as exc:
+        logger.warning("Direct Gmail poll failed (%s), falling back to MCP", exc)
+
+    # Fallback to MCP orchestrator
+    try:
+        orchestrator = _get_orchestrator()
         responses = await orchestrator.execute_operation(
-            prompt,
-            system_context=(
-                "You are an email data extraction agent. "
-                "Always return structured JSON arrays. No explanations or markdown."
-            ),
+            f"List unread emails received after {lookback.isoformat()}. "
+            "Return ONLY a JSON array with fields: id, subject, from, snippet, received_at, labels.",
+            system_context="You are an email data extraction agent. Return only JSON.",
             max_iterations=3,
         )
         return _try_parse_json_array(responses)
     except Exception as exc:
-        logger.error("Gmail poll failed: %s", exc)
+        logger.error("Gmail poll failed (both direct and MCP): %s", exc)
         return []
 
 
 async def _poll_slack(user_context: Dict[str, Any]) -> List[Dict]:
-    """Poll Slack via Composio MCP for recent channel messages."""
+    """Poll Slack via Composio MCP for recent channel messages.
+
+    Slack doesn't have a direct Composio tool equivalent that's reliable,
+    so we keep the MCP orchestrator approach.
+    """
     orchestrator = _get_orchestrator()
     lookback = datetime.now(timezone.utc) - timedelta(hours=1)
 

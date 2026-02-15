@@ -78,6 +78,7 @@ GOOGLE_CALENDAR_AUTH_CONFIG_ID: str = os.getenv("GOOGLE_CALENDAR_AUTH_CONFIG_ID"
 GMAIL_AUTH_CONFIG_ID: str = os.getenv("GMAIL_AUTH_CONFIG_ID", "")
 SLACK_AUTH_CONFIG_ID: str = os.getenv("SLACK_AUTH_CONFIG_ID", "")
 LINKEDIN_AUTH_CONFIG_ID: str = os.getenv("LINKEDIN_AUTH_CONFIG_ID", "")
+COMPOSIO_CALLBACK_URL: str = os.getenv("COMPOSIO_CALLBACK_URL", "http://localhost:3000/auth/callback")
 
 # ── Context Sentinel Polling ────────────────────────────────────────────
 

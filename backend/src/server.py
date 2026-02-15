@@ -2,6 +2,11 @@
 
 WebSocket for real-time schedule updates + REST endpoints for
 triggering actions and querying state.
+
+Integrations:
+- Composio: Gmail, Google Calendar, LinkedIn via /api/email/*, /api/calendar/*, /api/auth/*
+- Profiler: Full profiler intelligence via /api/profile/*
+- Schedule Intelligence: How profiler drives LTS/STS via /api/schedule/intelligence
 """
 
 from __future__ import annotations
@@ -10,15 +15,15 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
 
 import redis
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src.config.settings import REDIS_URL
+from src.config.settings import REDIS_URL, TASK_BUCKET_COUNT
 from src.models.task import Task, TaskStatus
 from src.engine.task_buffer import get_active_tasks, get_backlog_tasks, store_task
 from src.engine.lts import plan_day
@@ -29,6 +34,8 @@ from src.engine.disruption_classifier import (
     calculate_freed_minutes,
     determine_action,
 )
+from src.services.composio_service import get_composio_service
+from src.agents.profiler_agent import ProfilerEngine
 
 logger = logging.getLogger(__name__)
 
@@ -495,6 +502,492 @@ async def get_backlog():
     r = _get_redis()
     backlog = get_backlog_tasks(r)
     return {"tasks": [_task_to_frontend(t) for t in backlog]}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Composio Integration — Auth / Email / Calendar / LinkedIn
+# ══════════════════════════════════════════════════════════════════════════
+
+# ── Auth Routes ──────────────────────────────────────────────────────────
+
+class AuthConnectRequest(BaseModel):
+    toolkit: str  # "gmail" | "calendar" | "linkedin" | "slack"
+    callback_url: str = "http://localhost:3000/auth/callback"
+
+
+@app.post("/api/auth/connect")
+async def auth_connect(req: AuthConnectRequest):
+    """Initiate OAuth connection for a Composio toolkit.
+
+    Returns a redirect_url the frontend should open in a new window/tab.
+    """
+    svc = get_composio_service()
+    result = svc.initiate_connection(req.toolkit, req.callback_url)
+    return result
+
+
+@app.get("/api/auth/status")
+async def auth_status():
+    """Check which Composio toolkits have active OAuth connections."""
+    svc = get_composio_service()
+    return svc.check_connections()
+
+
+# ── Email Routes ─────────────────────────────────────────────────────────
+
+class SendEmailRequest(BaseModel):
+    to: str
+    subject: str
+    body: str
+    is_html: bool = False
+    cc: Optional[str] = None
+    bcc: Optional[str] = None
+
+
+@app.post("/api/email/send")
+async def send_email(req: SendEmailRequest):
+    """Send an email via Composio Gmail integration."""
+    svc = get_composio_service()
+    result = svc.send_email(
+        to=req.to,
+        subject=req.subject,
+        body=req.body,
+        is_html=req.is_html,
+        cc=req.cc,
+        bcc=req.bcc,
+    )
+    # Broadcast agent activity
+    await manager.broadcast_agent_activity(
+        "GhostWorker",
+        f"Email sent to {req.to}: {req.subject}",
+        "ghostworker",
+    )
+    return result
+
+
+@app.get("/api/email/list")
+async def list_emails(
+    q: str = Query("", description="Gmail search query"),
+    max_results: int = Query(20, ge=1, le=100),
+):
+    """Fetch emails from Gmail via Composio."""
+    svc = get_composio_service()
+    return svc.fetch_emails(query=q, max_results=max_results)
+
+
+@app.get("/api/email/{message_id}")
+async def get_email(message_id: str):
+    """Fetch a specific email by message ID."""
+    svc = get_composio_service()
+    return svc.fetch_email_by_id(message_id)
+
+
+# ── Calendar Routes ──────────────────────────────────────────────────────
+
+@app.get("/api/calendar/events")
+async def list_calendar_events(
+    time_min: Optional[str] = Query(None, description="RFC3339 start (deep past OK)"),
+    time_max: Optional[str] = Query(None, description="RFC3339 end (deep future OK)"),
+    max_results: int = Query(250, ge=1, le=2500),
+):
+    """List Google Calendar events via Composio.
+
+    Supports deep past/future time ranges.
+    Defaults to today if no range given.
+    """
+    svc = get_composio_service()
+    result = svc.list_events(
+        time_min=time_min,
+        time_max=time_max,
+        max_results=max_results,
+    )
+
+    # Push to WebSocket so dashboard stays in sync
+    cal_msg = _build_ws_message("calendar_update", {
+        "events": result.get("data", result),
+        "time_min": time_min,
+        "time_max": time_max,
+    })
+    await manager.broadcast(cal_msg)
+
+    return result
+
+
+class CreateEventRequest(BaseModel):
+    summary: str
+    start_datetime: str  # ISO 8601
+    duration_hours: int = 0
+    duration_minutes: int = 30
+    description: str = ""
+    attendees: list[str] = []
+    timezone: str = "America/Los_Angeles"
+    create_meeting_room: bool = False
+
+
+@app.post("/api/calendar/events")
+async def create_calendar_event(req: CreateEventRequest):
+    """Create a Google Calendar event via Composio."""
+    svc = get_composio_service()
+    result = svc.create_event(
+        summary=req.summary,
+        start_datetime=req.start_datetime,
+        duration_hours=req.duration_hours,
+        duration_minutes=req.duration_minutes,
+        description=req.description,
+        attendees=req.attendees if req.attendees else None,
+        timezone_str=req.timezone,
+        create_meeting_room=req.create_meeting_room,
+    )
+    await manager.broadcast_agent_activity(
+        "Context Sentinel",
+        f"Calendar event created: {req.summary}",
+        "info",
+    )
+    return result
+
+
+@app.get("/api/calendar/search")
+async def search_calendar_events(
+    q: str = Query(..., description="Search query"),
+    time_min: Optional[str] = None,
+    time_max: Optional[str] = None,
+):
+    """Search Google Calendar events via Composio."""
+    svc = get_composio_service()
+    return svc.find_event(query=q, time_min=time_min, time_max=time_max)
+
+
+# ── Profile + Profiler Intelligence Routes ───────────────────────────────
+
+@app.get("/api/profile/linkedin")
+async def get_linkedin_profile():
+    """Get authenticated user's LinkedIn profile via Composio."""
+    svc = get_composio_service()
+    return svc.get_linkedin_profile()
+
+
+@app.get("/api/profile/full")
+async def get_full_profile():
+    """Get full profiler output: user_profile, grouping, success_plot, sentiment, drift.
+
+    Reads from Redis cache (profiler:last_result) if available,
+    otherwise computes fresh from local data files.
+    """
+    r = _get_redis()
+
+    # Try cached result first
+    cached = r.get("profiler:last_result")
+    if cached:
+        try:
+            profile_data = json.loads(cached)
+        except (json.JSONDecodeError, TypeError):
+            profile_data = None
+    else:
+        profile_data = None
+
+    if not profile_data:
+        # Compute fresh from local data
+        profile_data = _compute_profiler_fresh(r)
+
+    # Enrich with live LinkedIn data (best-effort)
+    try:
+        svc = get_composio_service()
+        linkedin = svc.get_linkedin_profile()
+        if linkedin.get("successful"):
+            profile_data["linkedin_live"] = linkedin.get("data", linkedin)
+        else:
+            profile_data["linkedin_live"] = None
+    except Exception:
+        profile_data["linkedin_live"] = None
+
+    return profile_data
+
+
+def _compute_profiler_fresh(r: redis.Redis) -> dict[str, Any]:
+    """Run the ProfilerEngine on local data files and return the result."""
+    from src.data_pipeline.parsers import (
+        parse_daily_goals,
+        parse_linkedin,
+        parse_twitter,
+        parse_reflections,
+        parse_resume,
+    )
+
+    # Load data from parsers
+    daily_goals = parse_daily_goals()
+    social_hours: dict[str, list[int]] = {}
+
+    try:
+        li_data = parse_linkedin()
+        if li_data and "posting_hours" in li_data:
+            social_hours["linkedin"] = li_data["posting_hours"]
+    except Exception:
+        pass
+
+    try:
+        tw_data = parse_twitter()
+        if tw_data and "posting_hours" in tw_data:
+            social_hours["twitter"] = tw_data["posting_hours"]
+    except Exception:
+        pass
+
+    reflection_data: dict[str, Any] = {}
+    try:
+        reflection_data = parse_reflections()
+    except Exception:
+        pass
+
+    resume_data: dict[str, Any] = {}
+    try:
+        resume_data = parse_resume()
+    except Exception:
+        pass
+
+    # Task completions from Redis
+    task_completions: list[dict[str, Any]] = []
+    try:
+        tc_raw = r.get("profiler:task_completions")
+        if tc_raw:
+            task_completions = json.loads(tc_raw)
+    except Exception:
+        pass
+
+    # Run the profiler engine
+    engine = ProfilerEngine()
+    result = engine.build_full_profile(
+        daily_goals=daily_goals,
+        task_completions=task_completions,
+        social_posting_hours=social_hours,
+        reflection_data=reflection_data,
+        resume_data=resume_data,
+    )
+
+    # Cache the result
+    try:
+        r.set("profiler:last_result", json.dumps(result), ex=1800)  # 30 min TTL
+    except Exception:
+        pass
+
+    return result
+
+
+@app.get("/api/schedule/intelligence")
+async def get_schedule_intelligence():
+    """Return how profiler data drives LTS/STS scheduling decisions.
+
+    Exposes the scheduling configuration, MLFQ queue state,
+    task buffer distribution, and profiler influence summary.
+    """
+    r = _get_redis()
+
+    # Get profiler data
+    cached = r.get("profiler:last_result")
+    profile_data = None
+    if cached:
+        try:
+            profile_data = json.loads(cached)
+        except Exception:
+            pass
+
+    if not profile_data:
+        profile_data = _compute_profiler_fresh(r)
+
+    user_profile = profile_data.get("user_profile", {})
+    grouping = profile_data.get("grouping", {})
+
+    # LTS configuration — how the Long-Term Scheduler scores tasks
+    lts_config = {
+        "peak_hours": user_profile.get("peak_hours", _peak_hours),
+        "estimation_bias_correction": user_profile.get("estimation_bias", 1.0),
+        "scoring_weights": {
+            "deadline_urgency": 0.40,
+            "priority": 0.30,
+            "peak_alignment": 0.15,
+            "duration_efficiency": 0.15,
+        },
+    }
+
+    # STS configuration — current MLFQ queue state
+    queue_counts = _sts.queue_counts()
+    sts_config = {
+        "mlfq_queue_counts": queue_counts,
+        "energy_level": _energy_level,
+        "energy_constraint": f"tasks with energy_cost > {_energy_level} blocked",
+    }
+
+    # Task buffer — hash distribution across 16 buckets
+    bucket_distribution = [0] * TASK_BUCKET_COUNT
+    try:
+        backlog = get_backlog_tasks(r)
+        for t in backlog:
+            bucket_idx = t.bucket % TASK_BUCKET_COUNT
+            bucket_distribution[bucket_idx] += 1
+    except Exception:
+        pass
+
+    task_buffer = {
+        "bucket_count": TASK_BUCKET_COUNT,
+        "hash_weights": {
+            "deadline_urgency": 0.45,
+            "estimated_execution": 0.30,
+            "preferred_start": 0.25,
+        },
+        "bucket_distribution": bucket_distribution,
+    }
+
+    # Profiler influence summary
+    peak_hours = user_profile.get("peak_hours", _peak_hours)
+    bias = user_profile.get("estimation_bias", 1.0)
+    automation = user_profile.get("automation_comfort", {})
+    energy_curve = user_profile.get("energy_curve", [])
+
+    # Count how many active tasks are delegatable
+    active = get_active_tasks(r)
+    automatable_types = {"email_reply", "slack_message", "uber_book",
+                         "cancel_appointment", "doc_update", "meeting_reschedule"}
+    auto_count = sum(1 for t in active if t.task_type in automatable_types)
+
+    profiler_influence = {
+        "peak_hour_alignment": f"High-cognitive tasks scheduled during {peak_hours}",
+        "energy_curve_24h": energy_curve,
+        "energy_curve_effect": f"Low-energy P3 tasks deferred to evening hours",
+        "automation_delegated": auto_count,
+        "estimation_correction": f"Durations inflated by {bias:.2f}x based on historical bias",
+        "automation_comfort": automation,
+        "archetype": grouping.get("archetype", "unknown"),
+        "archetype_label": grouping.get("archetype_label", "Unknown"),
+        "drift_direction": user_profile.get("drift_direction", "balanced"),
+    }
+
+    return {
+        "lts_config": lts_config,
+        "sts_config": sts_config,
+        "task_buffer": task_buffer,
+        "profiler_influence": profiler_influence,
+    }
+
+
+# ── Agentverse Integration ────────────────────────────────────────────────
+
+@app.get("/status")
+async def agentverse_status():
+    """Chat Protocol health check — required for Agentverse registration."""
+    return {"status": "OK - Rewind server is running"}
+
+
+class AgentverseSearchRequest(BaseModel):
+    query: str
+    limit: int = 10
+
+
+@app.post("/api/agentverse/search")
+async def agentverse_search(req: AgentverseSearchRequest):
+    """Proxy Agentverse search to keep API key server-side."""
+    import os
+    import httpx
+
+    token = os.getenv("AGENTVERSE_API_TOKEN", "")
+    if not token:
+        return {"agents": [], "error": "AGENTVERSE_API_TOKEN not configured"}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://agentverse.ai/v1/search",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "search_text": req.query,
+                    "filters": {"state": ["active"]},
+                    "sort": "relevancy",
+                    "direction": "asc",
+                    "offset": 0,
+                    "limit": req.limit,
+                },
+                timeout=10.0,
+            )
+            if resp.status_code == 200:
+                return {"agents": resp.json()}
+            return {"agents": [], "error": f"Agentverse returned {resp.status_code}"}
+    except Exception as exc:
+        return {"agents": [], "error": str(exc)}
+
+
+class AgentverseChatRequest(BaseModel):
+    agent: str
+    message: str
+
+
+@app.post("/api/agentverse/chat")
+async def agentverse_chat(req: AgentverseChatRequest):
+    """Placeholder for agent chat — routes to local agent handlers."""
+    # In production, this would send a Chat Protocol message to the agent
+    # For now, return a description of the agent's capabilities
+    agent_responses = {
+        "Context Sentinel": "I monitor Google Calendar, Gmail, and Slack for real-time context changes. I can tell you about upcoming events and recent emails.",
+        "Profiler Agent": "I learn your behavioral patterns — peak hours, estimation bias, energy curves, schedule adherence. Ask me about your productivity patterns.",
+        "Disruption Detector": "I classify disruptions by severity (minor/major/critical) and recommend recovery actions (swap_in/swap_out/reschedule_all/delegate).",
+        "Scheduler Kernel": "I orchestrate the three-tier scheduling engine: LTS for daily planning, MTS for disruption recovery, STS for task ordering. I can optimize your schedule.",
+        "Energy Monitor": "I infer your energy level (1-5) from behavioral signals and time-of-day patterns. I track completion velocity and user-reported overrides.",
+        "GhostWorker": "I autonomously execute delegatable tasks — email replies, Slack messages, appointment cancellations. I draft first, you approve.",
+    }
+    response = agent_responses.get(
+        req.agent,
+        f"Agent '{req.agent}' is available but chat routing is not yet configured for this agent.",
+    )
+    return {"response": response, "agent": req.agent}
+
+
+# ── Draft Execution via Composio ─────────────────────────────────────────
+
+class DraftExecuteRequest(BaseModel):
+    to: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+
+
+@app.post("/api/drafts/{draft_id}/execute")
+async def execute_draft(draft_id: str, req: DraftExecuteRequest = None):
+    """Execute an approved draft by sending it via Composio.
+
+    Reads draft data from Redis, sends the email, and cleans up.
+    """
+    r = _get_redis()
+    svc = get_composio_service()
+
+    # Read draft from Redis
+    draft_data = r.hgetall(f"ghostworker:draft:{draft_id}")
+
+    # Determine email fields
+    to = (req and req.to) or draft_data.get("recipient", "")
+    subject = (req and req.subject) or draft_data.get("subject", "")
+    body = (req and req.body) or draft_data.get("body", "")
+
+    if not to or not body:
+        return {"successful": False, "error": "Missing recipient or body"}
+
+    # Send via Composio
+    result = svc.send_email(to=to, subject=subject, body=body)
+
+    if result.get("successful", False):
+        # Clean up draft from Redis
+        r.delete(f"ghostworker:draft:{draft_id}")
+        r.srem("ghostworker:pending", draft_id)
+
+        # Notify WebSocket
+        await manager.broadcast_agent_activity(
+            "GhostWorker",
+            f"Draft {draft_id} executed — email sent to {to}",
+            "ghostworker",
+        )
+
+        # Publish event for GhostWorker agent
+        r.publish("ghostworker:events", json.dumps({
+            "event": "draft_executed",
+            "draft_id": draft_id,
+            "task_id": draft_data.get("task_id", ""),
+        }))
+
+    return result
 
 
 # ── GhostWorker Relay ───────────────────────────────────────────────────
