@@ -17,7 +17,9 @@ EMBEDDING_MODEL: str = os.getenv(
 EMBEDDING_DIM: int = 384  # all-MiniLM-L6-v2 output dimension
 
 # Data directory containing the raw JSON/CSV/MD files
-DATA_DIR: Path = Path(os.getenv("DATA_DIR", "/Users/tarive/rewind/data"))
+DATA_DIR: Path = Path(
+    os.getenv("DATA_DIR", str(Path(__file__).resolve().parent.parent.parent / "data"))
+)
 
 # File names inside DATA_DIR
 LINKEDIN_FILE: str = "response_1762641602700.json"
