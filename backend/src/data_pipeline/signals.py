@@ -14,8 +14,11 @@ from typing import Any
 
 from src.data_pipeline.parsers import (
     parse_certs,
+    parse_daily_goals,
     parse_github,
     parse_linkedin,
+    parse_reflections,
+    parse_resume,
     parse_twitter,
 )
 
@@ -55,6 +58,9 @@ def build_all_signals() -> tuple[list[ExplicitSignal], list[ImplicitSignal]]:
     _classify_twitter(explicit, implicit)
     _classify_github(explicit, implicit)
     _classify_certs(explicit)
+    _classify_daily_goals(explicit, implicit)
+    _classify_reflections(explicit, implicit)
+    _classify_resume(explicit, implicit)
 
     return explicit, implicit
 
@@ -327,3 +333,306 @@ def _classify_certs(explicit: list[ExplicitSignal]) -> None:
             ),
             metadata=cert,
         ))
+
+
+# ---------------------------------------------------------------------------
+# Daily Goals
+# ---------------------------------------------------------------------------
+
+def _classify_daily_goals(
+    explicit: list[ExplicitSignal],
+    implicit: list[ImplicitSignal],
+) -> None:
+    entries = parse_daily_goals()
+    if not entries:
+        return
+
+    # Explicit: individual goal entries with completion status
+    for entry in entries:
+        for task in entry["tasks"]:
+            status = "completed" if task["completed"] else "incomplete"
+            explicit.append(ExplicitSignal(
+                source="daily_goals",
+                category="goal",
+                text=(
+                    f"Daily goal ({entry['day_id']}): [{status}] {task['text']}"
+                    + (f" — {task['note']}" if task["note"] else "")
+                ),
+                metadata={
+                    "day_id": entry["day_id"],
+                    "completed": task["completed"],
+                    "category": task["category"],
+                    "note": task["note"],
+                },
+            ))
+
+    # Implicit: completion rate trends
+    completion_rates = [e["completion_rate"] for e in entries]
+    avg_completion = sum(completion_rates) / len(completion_rates) if completion_rates else 0
+
+    implicit.append(ImplicitSignal(
+        source="daily_goals",
+        pattern_type="schedule_adherence",
+        description=(
+            f"Daily goal completion across {len(entries)} days: "
+            f"average {avg_completion:.1%} completion rate. "
+            f"Range: {min(completion_rates):.1%} to {max(completion_rates):.1%}."
+        ),
+        metadata={
+            "avg_completion_rate": round(avg_completion, 4),
+            "daily_rates": {e["day_id"]: e["completion_rate"] for e in entries},
+            "num_days_tracked": len(entries),
+        },
+    ))
+
+    # Implicit: procrastination / consistency pattern
+    import statistics
+    if len(completion_rates) >= 2:
+        stddev = statistics.stdev(completion_rates)
+    else:
+        stddev = 0.0
+
+    consistency_label = "high" if stddev < 0.15 else ("moderate" if stddev < 0.3 else "low")
+    implicit.append(ImplicitSignal(
+        source="daily_goals",
+        pattern_type="consistency",
+        description=(
+            f"Goal completion consistency: {consistency_label} "
+            f"(stddev={stddev:.3f}). "
+            f"{'Steady performer' if consistency_label == 'high' else 'Variable output — possible sporadic work pattern'}."
+        ),
+        metadata={
+            "consistency": consistency_label,
+            "stddev": round(stddev, 4),
+        },
+    ))
+
+    # Implicit: category distribution across all days
+    total_cats: dict[str, int] = {}
+    for entry in entries:
+        for cat, count in entry["category_distribution"].items():
+            total_cats[cat] = total_cats.get(cat, 0) + count
+    if total_cats:
+        dominant = max(total_cats, key=lambda c: total_cats[c])
+        implicit.append(ImplicitSignal(
+            source="daily_goals",
+            pattern_type="interests",
+            description=(
+                f"Task category distribution: "
+                + ", ".join(f"{c}={n}" for c, n in sorted(total_cats.items(), key=lambda x: -x[1]))
+                + f". Dominant focus area: {dominant}."
+            ),
+            metadata={"category_distribution": total_cats, "dominant": dominant},
+        ))
+
+    # Implicit: reflection sentiment trend
+    sentiments = [
+        (e["day_id"], e["reflection_sentiment"], e["reflection_sentiment_score"])
+        for e in entries if e["has_reflection"]
+    ]
+    if sentiments:
+        avg_sent = sum(s[2] for s in sentiments) / len(sentiments)
+        implicit.append(ImplicitSignal(
+            source="daily_goals",
+            pattern_type="sentiment",
+            description=(
+                f"Reflection sentiment across {len(sentiments)} entries: "
+                f"average score {avg_sent:.3f} "
+                f"({'positive trend' if avg_sent > 0.1 else 'negative trend' if avg_sent < -0.1 else 'neutral'}). "
+                f"Self-reflection present in {len(sentiments)}/{len(entries)} days."
+            ),
+            metadata={
+                "avg_sentiment": round(avg_sent, 4),
+                "reflection_count": len(sentiments),
+                "sentiments": {s[0]: {"label": s[1], "score": s[2]} for s in sentiments},
+            },
+        ))
+
+    # Implicit: growth trend (is completion rate improving over time?)
+    if len(completion_rates) >= 3:
+        first_half = completion_rates[: len(completion_rates) // 2]
+        second_half = completion_rates[len(completion_rates) // 2:]
+        first_avg = sum(first_half) / len(first_half)
+        second_avg = sum(second_half) / len(second_half)
+        trend = "improving" if second_avg > first_avg + 0.05 else (
+            "declining" if second_avg < first_avg - 0.05 else "stable"
+        )
+        implicit.append(ImplicitSignal(
+            source="daily_goals",
+            pattern_type="growth_trend",
+            description=(
+                f"Completion rate trend: {trend}. "
+                f"First half avg: {first_avg:.1%}, second half avg: {second_avg:.1%}."
+            ),
+            metadata={
+                "trend": trend,
+                "first_half_avg": round(first_avg, 4),
+                "second_half_avg": round(second_avg, 4),
+            },
+        ))
+
+
+# ---------------------------------------------------------------------------
+# Reflections
+# ---------------------------------------------------------------------------
+
+def _classify_reflections(
+    explicit: list[ExplicitSignal],
+    implicit: list[ImplicitSignal],
+) -> None:
+    data = parse_reflections()
+    if not data["documents"]:
+        return
+
+    # Explicit: stated goals and progress markers
+    for doc in data["documents"]:
+        for section_name, bullets in doc["sections"].items():
+            for bullet in bullets:
+                explicit.append(ExplicitSignal(
+                    source="reflections",
+                    category="goal" if doc["type"] == "goals" else "reflection",
+                    text=(
+                        f"[{section_name}] {bullet['title']}"
+                        + (f": {bullet['detail']}" if bullet["detail"] else "")
+                    ),
+                    metadata={
+                        "filename": doc["filename"],
+                        "section": section_name,
+                        "type": doc["type"],
+                    },
+                ))
+
+    # Implicit: self-awareness and growth velocity
+    gi = data["growth_indicators"]
+    implicit.append(ImplicitSignal(
+        source="reflections",
+        pattern_type="self_awareness",
+        description=(
+            f"Self-awareness score: {gi['self_awareness_score']:.2f}/1.0. "
+            f"Continue: {gi['continue_count']}, Stop: {gi['stop_count']}, "
+            f"Start: {gi['start_count']}. "
+            f"Mitigated: {gi['mitigated_count']}, Needs development: {gi['needs_development_count']}."
+        ),
+        metadata=gi,
+    ))
+
+    implicit.append(ImplicitSignal(
+        source="reflections",
+        pattern_type="growth_velocity",
+        description=(
+            f"Growth velocity: {gi['growth_velocity']:.2f} "
+            f"({gi['mitigated_count']} issues resolved out of "
+            f"{gi['mitigated_count'] + gi['needs_development_count']} total). "
+            f"{'Strong follow-through' if gi['growth_velocity'] > 0.6 else 'Room for improvement in execution'}."
+        ),
+        metadata={
+            "velocity": gi["growth_velocity"],
+            "mitigated": gi["mitigated_count"],
+            "pending": gi["needs_development_count"],
+        },
+    ))
+
+
+# ---------------------------------------------------------------------------
+# Resume / CV
+# ---------------------------------------------------------------------------
+
+def _classify_resume(
+    explicit: list[ExplicitSignal],
+    implicit: list[ImplicitSignal],
+) -> None:
+    data = parse_resume()
+    if not data["experiences"] and not data["skills"]:
+        return
+
+    # Explicit: skills
+    if data["skills"]:
+        explicit.append(ExplicitSignal(
+            source="resume",
+            category="skill",
+            text=f"Technical skills: {', '.join(data['skills'])}.",
+            metadata={"skills": data["skills"]},
+        ))
+
+    # Explicit: experiences
+    for exp in data["experiences"]:
+        explicit.append(ExplicitSignal(
+            source="resume",
+            category="experience",
+            text=f"Experience: {exp['organization']} ({exp['dates']}).",
+            metadata=exp,
+        ))
+
+    # Explicit: quantified achievements
+    for q in data["quantifications"][:30]:  # cap to avoid excessive signals
+        explicit.append(ExplicitSignal(
+            source="resume",
+            category="achievement",
+            text=f"Achievement: {q['value']}{q['unit']} — {q['context'][:150]}",
+            metadata=q,
+        ))
+
+    # Explicit: awards
+    for award in data["awards"]:
+        explicit.append(ExplicitSignal(
+            source="resume",
+            category="award",
+            text=f"Award: {award['title']} ({award['year']}).",
+            metadata=award,
+        ))
+
+    # Explicit: scholarships
+    for schol in data["scholarships"]:
+        explicit.append(ExplicitSignal(
+            source="resume",
+            category="scholarship",
+            text=f"Scholarship: {schol['title']} ({schol['year']}).",
+            metadata=schol,
+        ))
+
+    # Implicit: ambition level (number of quantified achievements + publications + awards)
+    ambition_score = min(
+        (len(data["quantifications"]) * 0.3
+         + data["publications_count"] * 1.5
+         + len(data["awards"]) * 1.0
+         + len(data["scholarships"]) * 0.5)
+        / 15.0,
+        1.0,
+    )
+    implicit.append(ImplicitSignal(
+        source="resume",
+        pattern_type="ambition",
+        description=(
+            f"Ambition signal: {ambition_score:.2f}/1.0. "
+            f"{len(data['quantifications'])} quantified achievements, "
+            f"{data['publications_count']} publications, "
+            f"{len(data['awards'])} awards, {len(data['scholarships'])} scholarships."
+        ),
+        metadata={
+            "ambition_score": round(ambition_score, 4),
+            "quant_count": len(data["quantifications"]),
+            "pub_count": data["publications_count"],
+            "award_count": len(data["awards"]),
+            "scholarship_count": len(data["scholarships"]),
+        },
+    ))
+
+    # Implicit: domain focus
+    exp_orgs = [e["organization"].lower() for e in data["experiences"]]
+    is_research = any("research" in o or "center" in o for o in exp_orgs)
+    is_industry = any("google" in o or "intern" in o for o in exp_orgs)
+    domain = "research-industry hybrid" if is_research and is_industry else (
+        "research-focused" if is_research else (
+            "industry-focused" if is_industry else "general"
+        )
+    )
+    implicit.append(ImplicitSignal(
+        source="resume",
+        pattern_type="domain_focus",
+        description=(
+            f"Career domain: {domain}. "
+            f"{len(data['experiences'])} professional experiences spanning "
+            f"{'research and industry' if domain == 'research-industry hybrid' else domain}."
+        ),
+        metadata={"domain": domain, "experience_count": len(data["experiences"])},
+    ))

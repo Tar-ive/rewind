@@ -26,6 +26,9 @@ LINKEDIN_FILE: str = "response_1762641602700.json"
 TWITTER_FILE: str = "XPostExporter_saksham_adh_2025-11-08_16-19_20.csv"
 GITHUB_FILE: str = "github_data.md"
 CERTS_FILE: str = "Certifications.csv"
+RESUME_FILE: str = "Saksham_CV.docx.md"
+DAILY_GOALS_DIR: str = "daily_goals"
+REFLECTIONS_DIR: str = "reflections"
 
 # RedisVL index names
 EXPLICIT_INDEX: str = "explicit_signals"
@@ -48,6 +51,9 @@ ENERGY_MONITOR_SEED: str = os.getenv(
 )
 GHOST_WORKER_SEED: str = os.getenv(
     "GHOST_WORKER_SEED", "rewind-ghost-worker-seed-v1"
+)
+PROFILER_AGENT_SEED: str = os.getenv(
+    "PROFILER_AGENT_SEED", "rewind-profiler-agent-seed-v1"
 )
 
 # Agent addresses (auto-generated from seeds, override for production)
@@ -78,6 +84,13 @@ LINKEDIN_AUTH_CONFIG_ID: str = os.getenv("LINKEDIN_AUTH_CONFIG_ID", "")
 SENTINEL_POLL_INTERVAL: int = int(os.getenv("SENTINEL_POLL_INTERVAL", "60"))
 CALENDAR_LOOKAHEAD_HOURS: int = int(os.getenv("CALENDAR_LOOKAHEAD_HOURS", "24"))
 GMAIL_LOOKBACK_HOURS: int = int(os.getenv("GMAIL_LOOKBACK_HOURS", "2"))
+
+# ── Profiler Configuration ────────────────────────────────────────────────
+
+PROFILER_SLIDING_WINDOW_DAYS: int = int(os.getenv("PROFILER_SLIDING_WINDOW_DAYS", "14"))
+PROFILER_DECAY_FACTOR: float = float(os.getenv("PROFILER_DECAY_FACTOR", "0.85"))
+PROFILER_RECOMPUTE_INTERVAL: int = int(os.getenv("PROFILER_RECOMPUTE_INTERVAL", "1800"))  # 30 min
+PROFILER_DRIFT_THRESHOLD: float = float(os.getenv("PROFILER_DRIFT_THRESHOLD", "0.15"))
 
 # ── Agent Deployment ─────────────────────────────────────────────────────
 

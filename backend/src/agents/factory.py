@@ -32,10 +32,12 @@ from src.config.settings import (
     SCHEDULER_KERNEL_SEED,
     ENERGY_MONITOR_SEED,
     GHOST_WORKER_SEED,
+    PROFILER_AGENT_SEED,
     DISRUPTION_DETECTOR_ADDRESS,
     SCHEDULER_KERNEL_ADDRESS,
     ENERGY_MONITOR_ADDRESS,
     GHOST_WORKER_ADDRESS,
+    PROFILER_AGENT_ADDRESS,
     REDIS_URL,
     SENTINEL_POLL_INTERVAL,
     CALENDAR_LOOKAHEAD_HOURS,
@@ -43,12 +45,19 @@ from src.config.settings import (
     GOOGLE_CALENDAR_AUTH_CONFIG_ID,
     GMAIL_AUTH_CONFIG_ID,
     SLACK_AUTH_CONFIG_ID,
+    PROFILER_RECOMPUTE_INTERVAL,
+    PROFILER_SLIDING_WINDOW_DAYS,
+    PROFILER_DECAY_FACTOR,
+    PROFILER_DRIFT_THRESHOLD,
 )
 from src.models.messages import (
     ContextChangeEvent,
     DisruptionEvent,
     EnergyLevel,
     EnergyQuery,
+    ProfileQuery,
+    ProfilerGrouping,
+    ProfileUpdateEvent,
     UpdatedSchedule,
     ScheduleRequest,
     DelegationTask,
@@ -712,6 +721,325 @@ def create_ghost_worker(port: int = 8005) -> Agent:
         "GhostWorker",
         "Autonomously executes delegatable tasks like email replies, Slack messages, "
         "LinkedIn posts, and meeting scheduling with user approval",
+        _chat_handler,
+    )
+    agent.include(chat_proto, publish_manifest=True)
+
+    return agent
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Profiler Agent Factory
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def create_profiler_agent(port: int = 8005) -> Agent:
+    """Create and configure the Profiler Agent.
+
+    Learns implicit behavioral patterns from daily goals, social media,
+    task completion logs, and reflections. Computes UserProfile, archetype
+    grouping, and success-plot coordinates for all other agents.
+    """
+    agent = Agent(
+        name="profiler_agent",
+        seed=PROFILER_AGENT_SEED,
+        port=port,
+        endpoint=[f"http://localhost:{port}/submit"],
+    )
+
+    _state: Dict[str, Any] = {
+        "engine": None,
+        "redis": None,
+        "last_profile": None,
+        "last_grouping": None,
+        "last_success": None,
+    }
+
+    def _get_redis_client() -> redis.Redis:
+        if _state["redis"] is None:
+            _state["redis"] = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+        return _state["redis"]
+
+    def _get_engine():
+        if _state["engine"] is None:
+            from src.agents.profiler_agent import (
+                ProfilerEngine,
+                PatternEngine,
+                TemporalTracker,
+            )
+
+            # Restore temporal tracker from Redis if available
+            r = _get_redis_client()
+            tracker_payload = r.get("profiler:temporal_tracker")
+            tracker = (
+                TemporalTracker.from_redis_payload(
+                    tracker_payload, drift_threshold=PROFILER_DRIFT_THRESHOLD
+                )
+                if tracker_payload
+                else TemporalTracker(drift_threshold=PROFILER_DRIFT_THRESHOLD)
+            )
+
+            pattern_eng = PatternEngine(
+                sliding_window_days=PROFILER_SLIDING_WINDOW_DAYS,
+                decay_factor=PROFILER_DECAY_FACTOR,
+            )
+            _state["engine"] = ProfilerEngine(
+                pattern_engine=pattern_eng,
+                temporal_tracker=tracker,
+            )
+        return _state["engine"]
+
+    def _load_data_and_compute() -> Dict[str, Any]:
+        """Load all data sources and run the full profiling pipeline."""
+        from src.data_pipeline.parsers import (
+            parse_daily_goals,
+            parse_linkedin,
+            parse_reflections,
+            parse_resume,
+            parse_twitter,
+        )
+
+        # Parse data sources
+        daily_goals = parse_daily_goals()
+        reflection_data = parse_reflections()
+        resume_data = parse_resume()
+
+        # Extract social posting hours
+        social_hours: Dict[str, list] = {}
+        try:
+            li_data = parse_linkedin()
+            stats = li_data.get("stats", {})
+            social_hours["linkedin"] = stats.get("peak_posting_hours", [])
+        except Exception:
+            logger.debug("LinkedIn data not available for profiler")
+
+        try:
+            tw_data = parse_twitter()
+            stats = tw_data.get("stats", {})
+            social_hours["twitter"] = stats.get("peak_activity_hours", [])
+        except Exception:
+            logger.debug("Twitter data not available for profiler")
+
+        engine = _get_engine()
+        result = engine.build_full_profile(
+            daily_goals=daily_goals,
+            task_completions=_get_task_completions(),
+            social_posting_hours=social_hours,
+            reflection_data=reflection_data,
+            resume_data=resume_data,
+        )
+
+        # Cache in state
+        _state["last_profile"] = result["user_profile"]
+        _state["last_grouping"] = result["grouping"]
+        _state["last_success"] = result["success_plot"]
+
+        # Persist temporal tracker to Redis
+        r = _get_redis_client()
+        r.set("profiler:temporal_tracker", engine.temporal_tracker.to_redis_payload())
+        r.set("profiler:last_result", json.dumps(result, default=str))
+
+        return result
+
+    def _get_task_completions() -> List[Dict]:
+        """Pull task completion history from Redis."""
+        r = _get_redis_client()
+        raw = r.get("profiler:task_completions")
+        if raw:
+            try:
+                return json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return []
+
+    def _record_task_completion(task_id: str, actual: int, estimated: int) -> None:
+        """Append a task completion record to Redis."""
+        r = _get_redis_client()
+        completions = _get_task_completions()
+        completions.append({
+            "task_id": task_id,
+            "actual_minutes": actual,
+            "estimated_minutes": estimated,
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+        })
+        # Keep last 100
+        r.set("profiler:task_completions", json.dumps(completions[-100:]))
+
+    # ── Startup ──────────────────────────────────────────────────────────
+
+    @agent.on_event("startup")
+    async def on_startup(ctx: Context):
+        logger.info("Profiler Agent starting — address: %s", agent.address)
+        try:
+            result = _load_data_and_compute()
+            grouping = result["grouping"]
+            success = result["success_plot"]
+            logger.info(
+                "Profiler initialized: archetype=%s, exec=%.2f, growth=%.2f, quadrant=%s",
+                grouping["archetype_label"],
+                success["execution_velocity"],
+                success["growth_trajectory"],
+                success["quadrant_label"],
+            )
+        except Exception as exc:
+            logger.error("Profiler startup compute failed: %s", exc)
+
+    # ── Periodic recomputation ───────────────────────────────────────────
+
+    @agent.on_interval(period=PROFILER_RECOMPUTE_INTERVAL)
+    async def periodic_recompute(ctx: Context):
+        try:
+            result = _load_data_and_compute()
+            drift = result.get("temporal_drift")
+
+            if drift:
+                logger.info(
+                    "Profile drift detected: fields=%s, magnitude=%.3f",
+                    drift["changed_fields"],
+                    drift["magnitude"],
+                )
+                # Broadcast updated profile to consumer agents
+                profile = result["user_profile"]
+                profile_msg = UserProfile(
+                    peak_hours=profile["peak_hours"],
+                    avg_task_durations=profile["avg_task_durations"],
+                    energy_curve=profile["energy_curve"],
+                    adherence_score=profile["adherence_score"],
+                    distraction_patterns=profile["distraction_patterns"],
+                    estimation_bias=profile["estimation_bias"],
+                    automation_comfort=profile["automation_comfort"],
+                )
+                for addr in [SCHEDULER_KERNEL_ADDRESS, ENERGY_MONITOR_ADDRESS, DISRUPTION_DETECTOR_ADDRESS]:
+                    if addr:
+                        try:
+                            await ctx.send(addr, profile_msg)
+                        except Exception as exc:
+                            logger.debug("Could not send profile to %s: %s", addr, exc)
+
+                # Emit profile update event
+                update_event = ProfileUpdateEvent(
+                    changed_fields=drift["changed_fields"],
+                    magnitude=drift["magnitude"],
+                    timestamp=drift["timestamp"],
+                )
+                logger.info("ProfileUpdateEvent emitted: %s", update_event)
+        except Exception as exc:
+            logger.error("Periodic profiler recompute failed: %s", exc)
+
+    # ── Handle ProfileQuery from other agents ────────────────────────────
+
+    @agent.on_message(ProfileQuery)
+    async def handle_profile_query(ctx: Context, sender: str, msg: ProfileQuery):
+        logger.info("ProfileQuery from %s: type=%s", sender, msg.query_type)
+
+        # Ensure we have computed data
+        if _state["last_profile"] is None:
+            _load_data_and_compute()
+
+        profile = _state["last_profile"] or {}
+
+        if msg.query_type == "full_profile":
+            response = UserProfile(
+                peak_hours=profile.get("peak_hours", [9, 10, 14, 15]),
+                avg_task_durations=profile.get("avg_task_durations", {}),
+                energy_curve=profile.get("energy_curve", [3] * 24),
+                adherence_score=profile.get("adherence_score", 0.7),
+                distraction_patterns=profile.get("distraction_patterns", {}),
+                estimation_bias=profile.get("estimation_bias", 1.2),
+                automation_comfort=profile.get("automation_comfort", {}),
+            )
+            await ctx.send(sender, response)
+
+        elif msg.query_type == "grouping":
+            grouping = _state["last_grouping"] or {}
+            response = ProfilerGrouping(
+                archetype=grouping.get("archetype", "at_risk"),
+                execution_score=grouping.get("execution_composite", 0.5),
+                growth_score=grouping.get("growth_composite", 0.5),
+                confidence=grouping.get("confidence", 0.3),
+                traits=grouping.get("traits", {}),
+            )
+            await ctx.send(sender, response)
+
+        else:
+            # Return just the requested field
+            response = UserProfile(
+                peak_hours=profile.get("peak_hours", [9, 10, 14, 15]),
+                avg_task_durations=profile.get("avg_task_durations", {}),
+                energy_curve=profile.get("energy_curve", [3] * 24),
+                adherence_score=profile.get("adherence_score", 0.7),
+                distraction_patterns=profile.get("distraction_patterns", {}),
+                estimation_bias=profile.get("estimation_bias", 1.2),
+                automation_comfort=profile.get("automation_comfort", {}),
+            )
+            await ctx.send(sender, response)
+
+    # ── Handle TaskCompletion for real-time updates ──────────────────────
+
+    @agent.on_message(TaskCompletion)
+    async def handle_task_completion(ctx: Context, sender: str, msg: TaskCompletion):
+        if msg.status != "executed":
+            return
+        actual = msg.result.get("actual_minutes", 0)
+        estimated = msg.result.get("estimated_minutes", 0)
+        if actual > 0 and estimated > 0:
+            _record_task_completion(msg.task_id, actual, estimated)
+            logger.info(
+                "Recorded task completion: %s (actual=%d, estimated=%d)",
+                msg.task_id, actual, estimated,
+            )
+
+    # ── Chat Protocol ────────────────────────────────────────────────────
+
+    async def _chat_handler(ctx: Context, sender: str, text: str) -> str:
+        if _state["last_profile"] is None:
+            _load_data_and_compute()
+
+        profile = _state["last_profile"] or {}
+        grouping = _state["last_grouping"] or {}
+        success = _state["last_success"] or {}
+
+        text_lower = text.lower()
+
+        if "peak" in text_lower or "productive hours" in text_lower:
+            return (
+                f"Your peak productivity hours are: {profile.get('peak_hours', 'unknown')}. "
+                f"Schedule high-cognitive tasks during these windows for best results."
+            )
+
+        if "improving" in text_lower or "getting better" in text_lower or "growth" in text_lower:
+            trajectory = success.get("growth_trajectory", 0)
+            quadrant = success.get("quadrant_label", "unknown")
+            return (
+                f"Your growth trajectory score is {trajectory:.2f}/1.0. "
+                f"You're currently in the '{quadrant}' quadrant. "
+                f"{'You are on an upward trend!' if trajectory > 0.5 else 'There is room for growth.'}"
+            )
+
+        if "archetype" in text_lower or "type" in text_lower or "who am i" in text_lower:
+            return (
+                f"Your archetype: {grouping.get('archetype_label', 'unknown')}. "
+                f"{grouping.get('archetype_description', '')} "
+                f"Execution: {grouping.get('execution_composite', 0):.2f}, "
+                f"Growth: {grouping.get('growth_composite', 0):.2f}."
+            )
+
+        # Default: full summary
+        return (
+            f"I'm the Profiler Agent. Here's your profile summary:\n"
+            f"- Archetype: {grouping.get('archetype_label', 'unknown')}\n"
+            f"- Peak hours: {profile.get('peak_hours', [])}\n"
+            f"- Adherence: {profile.get('adherence_score', 0):.0%}\n"
+            f"- Estimation bias: {profile.get('estimation_bias', 1.0):.2f}x\n"
+            f"- Execution velocity: {success.get('execution_velocity', 0):.2f}\n"
+            f"- Growth trajectory: {success.get('growth_trajectory', 0):.2f}\n"
+            f"- Quadrant: {success.get('quadrant_label', 'unknown')}\n"
+            f"Ask me about 'peak hours', 'am I improving?', or 'what's my archetype?'"
+        )
+
+    chat_proto = create_chat_protocol(
+        "Profiler Agent",
+        "Learns your behavioral patterns and classifies your productivity archetype",
         _chat_handler,
     )
     agent.include(chat_proto, publish_manifest=True)

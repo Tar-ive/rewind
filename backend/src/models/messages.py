@@ -92,3 +92,19 @@ class ScheduleRequest(Model):
     """Request to Scheduler Kernel for on-demand scheduling."""
     action: str              # plan_day | reoptimize | add_task
     payload: dict            # action-specific data
+
+
+class ProfilerGrouping(Model):
+    """User classification on the achiever spectrum (exclusive — high bar)."""
+    archetype: str           # "compounding_builder" | "reliable_operator" | "emerging_talent" | "at_risk"
+    execution_score: float   # 0.0-1.0 (x-axis of success function)
+    growth_score: float      # 0.0-1.0 (y-axis of success function)
+    confidence: float        # 0.0-1.0
+    traits: dict             # detailed trait breakdown
+
+
+class ProfileUpdateEvent(Model):
+    """Emitted when profiler detects significant pattern change."""
+    changed_fields: list     # which profile fields changed
+    magnitude: float         # 0.0-1.0 how much changed
+    timestamp: str           # ISO 8601
