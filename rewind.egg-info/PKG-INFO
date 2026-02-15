@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: rewind
+Version: 0.1.0
+Summary: The Intelligent Life Scheduler - AI-powered life operating system
+Requires-Python: >=3.11
+Requires-Dist: uagents
+Requires-Dist: anthropic
+Requires-Dist: redisvl
+Requires-Dist: redis
+Requires-Dist: sentence-transformers
+Requires-Dist: pandas
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: python-dotenv
+Requires-Dist: httpx

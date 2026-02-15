@@ -1,0 +1,50 @@
+# RedisVL index schemas for Rewind data signals
+# These are used by redis_store.py to create FT indexes on Redis Stack.
+
+explicit_signals:
+  index:
+    name: explicit_signals
+    prefix: "explicit:"
+    storage_type: hash
+  fields:
+    - name: signal_id
+      type: tag
+    - name: source
+      type: tag
+    - name: category
+      type: tag
+    - name: text
+      type: text
+    - name: metadata
+      type: text
+    - name: embedding
+      type: vector
+      attrs:
+        algorithm: hnsw
+        dims: 384
+        distance_metric: cosine
+        type: float32
+
+implicit_signals:
+  index:
+    name: implicit_signals
+    prefix: "implicit:"
+    storage_type: hash
+  fields:
+    - name: signal_id
+      type: tag
+    - name: source
+      type: tag
+    - name: pattern_type
+      type: tag
+    - name: description
+      type: text
+    - name: metadata
+      type: text
+    - name: embedding
+      type: vector
+      attrs:
+        algorithm: hnsw
+        dims: 384
+        distance_metric: cosine
+        type: float32
