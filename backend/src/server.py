@@ -215,10 +215,61 @@ async def websocket_endpoint(ws: WebSocket):
         # Keep connection alive, listen for client messages
         while True:
             data = await ws.receive_text()
-            # Client can send commands (future: voice commands, manual triggers)
             try:
                 msg = json.loads(data)
-                logger.info(f"Client message: {msg}")
+                msg_type = msg.get("type", "")
+
+                if msg_type == "identify":
+                    # iOS bridge or other clients identify themselves
+                    logger.info("Client identified: %s (device: %s)",
+                                msg.get("client", "unknown"), msg.get("device_id", ""))
+
+                elif msg_type == "voice_command":
+                    # Voice commands from iOS bridge app
+                    payload = msg.get("payload", {})
+                    command_type = payload.get("command_type", "")
+                    task_id = payload.get("task_id", "")
+
+                    if command_type == "complete_task" and task_id:
+                        task = Task.from_redis(r, task_id)
+                        if task:
+                            task.status = TaskStatus.COMPLETED
+                            task.to_redis(r)
+                            r.srem("task:active", task_id)
+                            active = get_active_tasks(r)
+                            _sts.reorder(active)
+                            frontend_tasks = [_task_to_frontend(t) for t in active]
+                            update_msg = _build_ws_message("updated_schedule", {
+                                "tasks": frontend_tasks, "swaps": [],
+                                "energy": {"level": _energy_level, "confidence": 0.5, "source": "time_based"},
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                            })
+                            await manager.broadcast(update_msg)
+                            await manager.broadcast_agent_activity(
+                                "Reminder Agent", f"Task '{task.title}' completed via voice", "info")
+
+                    elif command_type == "start_task" and task_id:
+                        task = Task.from_redis(r, task_id)
+                        if task:
+                            task.status = TaskStatus.IN_PROGRESS
+                            task.to_redis(r)
+                            active = get_active_tasks(r)
+                            frontend_tasks = [_task_to_frontend(t) for t in active]
+                            update_msg = _build_ws_message("updated_schedule", {
+                                "tasks": frontend_tasks, "swaps": [],
+                                "energy": {"level": _energy_level, "confidence": 0.5, "source": "time_based"},
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                            })
+                            await manager.broadcast(update_msg)
+
+                    elif command_type == "snooze_reminder":
+                        minutes = payload.get("minutes", 15)
+                        if task_id:
+                            r.set(f"reminder:snoozed:{task_id}", "1", ex=int(minutes) * 60)
+
+                else:
+                    logger.info("Client message: %s", msg)
+
             except json.JSONDecodeError:
                 pass
 
@@ -502,6 +553,104 @@ async def get_backlog():
     r = _get_redis()
     backlog = get_backlog_tasks(r)
     return {"tasks": [_task_to_frontend(t) for t in backlog]}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Task Actions — Complete / Start / Snooze (used by voice commands + iOS)
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@app.post("/api/tasks/{task_id}/complete")
+async def complete_task(task_id: str):
+    """Mark a task as completed and broadcast updated schedule.
+
+    Triggers STS reorder so the next task is promoted. Used by
+    ElevenLabs voice clientTools and the iOS bridge app.
+    """
+    r = _get_redis()
+    task = Task.from_redis(r, task_id)
+    if not task:
+        return {"error": "Task not found", "task_id": task_id}
+
+    task.status = TaskStatus.COMPLETED
+    task.to_redis(r)
+    r.srem("task:active", task_id)
+
+    # Rebuild STS and broadcast
+    active = get_active_tasks(r)
+    _sts.reorder(active)
+    frontend_tasks = [_task_to_frontend(t) for t in active]
+    msg = _build_ws_message("updated_schedule", {
+        "tasks": frontend_tasks,
+        "swaps": [],
+        "energy": {"level": _energy_level, "confidence": 0.5, "source": "time_based"},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    await manager.broadcast(msg)
+    await manager.broadcast_agent_activity(
+        "Reminder Agent", f"Task '{task.title}' marked complete", "info")
+
+    return {"status": "completed", "task_id": task_id, "title": task.title}
+
+
+@app.post("/api/tasks/{task_id}/start")
+async def start_task(task_id: str):
+    """Mark a task as in-progress and broadcast updated schedule."""
+    r = _get_redis()
+    task = Task.from_redis(r, task_id)
+    if not task:
+        return {"error": "Task not found", "task_id": task_id}
+
+    task.status = TaskStatus.IN_PROGRESS
+    task.to_redis(r)
+
+    active = get_active_tasks(r)
+    frontend_tasks = [_task_to_frontend(t) for t in active]
+    msg = _build_ws_message("updated_schedule", {
+        "tasks": frontend_tasks,
+        "swaps": [],
+        "energy": {"level": _energy_level, "confidence": 0.5, "source": "time_based"},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    await manager.broadcast(msg)
+    await manager.broadcast_agent_activity(
+        "Reminder Agent", f"Task '{task.title}' started", "info")
+
+    return {"status": "in_progress", "task_id": task_id, "title": task.title}
+
+
+class SnoozeRequest(BaseModel):
+    task_id: str = ""
+    minutes: int = 15
+
+
+@app.post("/api/reminders/snooze")
+async def snooze_reminder(req: SnoozeRequest):
+    """Snooze reminders for a task. Sets a Redis key with TTL."""
+    r = _get_redis()
+    if req.task_id:
+        r.set(f"reminder:snoozed:{req.task_id}", "1", ex=req.minutes * 60)
+    return {"status": "snoozed", "task_id": req.task_id, "minutes": req.minutes}
+
+
+class IOSRegisterRequest(BaseModel):
+    device_token: str = ""
+    device_id: str = ""
+
+
+@app.post("/api/ios/register")
+async def register_ios_device(req: IOSRegisterRequest):
+    """Register an iOS device for future push notification support.
+
+    Stores device info in Redis. APNs integration is a future phase;
+    WebSocket-based reminders work when the app is foregrounded.
+    """
+    r = _get_redis()
+    r.hset("ios:devices", req.device_id, json.dumps({
+        "token": req.device_token,
+        "registered_at": datetime.now(timezone.utc).isoformat(),
+    }))
+    return {"status": "registered", "device_id": req.device_id}
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -995,6 +1144,7 @@ async def execute_draft(draft_id: str, req: DraftExecuteRequest = None):
 # It contains NO GhostWorker business logic — the agent is fully autonomous.
 
 _ghostworker_listener_task: Optional[asyncio.Task] = None
+_reminder_listener_task: Optional[asyncio.Task] = None
 
 
 async def _ghostworker_event_listener():
@@ -1074,22 +1224,69 @@ async def _ghostworker_event_listener():
         logger.error("GhostWorker event listener error: %s", exc)
 
 
+async def _reminder_event_listener():
+    """Background task: subscribe to reminder:events and relay to WebSocket.
+
+    The Reminder Agent publishes ReminderNotification events to the
+    reminder:events Redis channel. This listener relays them to all
+    connected WebSocket clients (web dashboard + iOS bridge app).
+    """
+    r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+    pubsub = r.pubsub(ignore_subscribe_messages=True)
+    pubsub.subscribe("reminder:events")
+    logger.info("Reminder event listener started")
+
+    try:
+        while True:
+            msg = pubsub.get_message(timeout=1.0)
+            if msg is None:
+                await asyncio.sleep(0.5)
+                continue
+            if msg["type"] != "message":
+                continue
+
+            try:
+                data = json.loads(msg["data"])
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            event_type = data.get("event", "")
+
+            if event_type == "reminder":
+                notification = data.get("notification", {})
+                ws_msg = _build_ws_message("reminder", notification)
+                await manager.broadcast(ws_msg)
+                await manager.broadcast_agent_activity(
+                    "Reminder Agent",
+                    notification.get("title", "Reminder sent"),
+                    "info",
+                )
+
+    except asyncio.CancelledError:
+        pubsub.unsubscribe("reminder:events")
+        pubsub.close()
+    except Exception as exc:
+        logger.error("Reminder event listener error: %s", exc)
+
+
 @app.on_event("startup")
-async def start_ghostworker_listener():
-    """Start the GhostWorker event relay on server startup."""
-    global _ghostworker_listener_task
+async def start_event_listeners():
+    """Start background event relays on server startup."""
+    global _ghostworker_listener_task, _reminder_listener_task
     _ghostworker_listener_task = asyncio.create_task(_ghostworker_event_listener())
+    _reminder_listener_task = asyncio.create_task(_reminder_event_listener())
 
 
 @app.on_event("shutdown")
-async def stop_ghostworker_listener():
-    """Stop the GhostWorker event relay on server shutdown."""
-    if _ghostworker_listener_task and not _ghostworker_listener_task.done():
-        _ghostworker_listener_task.cancel()
-        try:
-            await _ghostworker_listener_task
-        except asyncio.CancelledError:
-            pass
+async def stop_event_listeners():
+    """Stop background event relays on server shutdown."""
+    for task in [_ghostworker_listener_task, _reminder_listener_task]:
+        if task and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 @app.get("/api/ghostworker/drafts")

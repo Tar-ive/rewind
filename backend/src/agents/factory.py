@@ -33,11 +33,13 @@ from src.config.settings import (
     ENERGY_MONITOR_SEED,
     GHOST_WORKER_SEED,
     PROFILER_AGENT_SEED,
+    REMINDER_AGENT_SEED,
     DISRUPTION_DETECTOR_ADDRESS,
     SCHEDULER_KERNEL_ADDRESS,
     ENERGY_MONITOR_ADDRESS,
     GHOST_WORKER_ADDRESS,
     PROFILER_AGENT_ADDRESS,
+    REMINDER_AGENT_ADDRESS,
     REDIS_URL,
     SENTINEL_POLL_INTERVAL,
     CALENDAR_LOOKAHEAD_HOURS,
@@ -49,6 +51,8 @@ from src.config.settings import (
     PROFILER_SLIDING_WINDOW_DAYS,
     PROFILER_DECAY_FACTOR,
     PROFILER_DRIFT_THRESHOLD,
+    REMINDER_EVAL_INTERVAL,
+    ANTHROPIC_API_KEY,
 )
 from src.models.messages import (
     ContextChangeEvent,
@@ -58,11 +62,13 @@ from src.models.messages import (
     ProfileQuery,
     ProfilerGrouping,
     ProfileUpdateEvent,
+    ReminderNotification,
     UpdatedSchedule,
     ScheduleRequest,
     DelegationTask,
     TaskCompletion,
     UserProfile,
+    VoiceCommand,
 )
 from src.models.task import Task, TaskStatus
 from src.engine.lts import plan_day, replan_remaining
@@ -1040,6 +1046,214 @@ def create_profiler_agent(port: int = 8005) -> Agent:
     chat_proto = create_chat_protocol(
         "Profiler Agent",
         "Learns your behavioral patterns and classifies your productivity archetype",
+        _chat_handler,
+    )
+    agent.include(chat_proto, publish_manifest=True)
+
+    return agent
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Reminder Agent Factory
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def create_reminder_agent(port: int = 8007) -> Agent:
+    """Create and configure the Reminder Agent.
+
+    Uses direct Anthropic API calls to evaluate the current schedule context
+    on each tick and decide intelligently whether to send reminders. No
+    hardcoded timing rules — the LLM reasons about urgency, energy, user
+    patterns, and cooldown state.
+
+    Publishes ReminderNotification events to Redis for server relay to all
+    connected clients (web dashboard + iOS bridge app).
+    """
+    agent = Agent(
+        name="reminder_agent",
+        seed=REMINDER_AGENT_SEED,
+        port=port,
+        **_agent_kwargs(port),
+    )
+
+    _state: Dict[str, Any] = {
+        "redis": None,
+    }
+
+    def _get_redis_client() -> redis.Redis:
+        if _state["redis"] is None:
+            _state["redis"] = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+        return _state["redis"]
+
+    # ── Startup ──────────────────────────────────────────────────────────
+
+    @agent.on_event("startup")
+    async def on_startup(ctx: Context):
+        logger.info("Reminder Agent starting — address: %s", agent.address)
+        if not ANTHROPIC_API_KEY:
+            logger.warning("ANTHROPIC_API_KEY not set — reminder evaluation will be disabled")
+        ctx.storage.set("eval_count", "0")
+        ctx.storage.set("reminders_sent", "0")
+        logger.info(
+            "Reminder Agent initialized — evaluation interval: %ds",
+            REMINDER_EVAL_INTERVAL,
+        )
+
+    # ── Core Agentic Evaluation Loop ─────────────────────────────────────
+
+    @agent.on_interval(period=REMINDER_EVAL_INTERVAL)
+    async def evaluate_reminders(ctx: Context):
+        """The agentic evaluation loop.
+
+        Every tick, gathers schedule context from Redis, calls Claude to
+        reason about whether any reminders are warranted, and publishes
+        notifications if the LLM decides yes.
+        """
+        from src.agents.reminder_agent import (
+            REMINDER_SYSTEM_PROMPT,
+            build_evaluation_context,
+            call_claude,
+            parse_reminder_response,
+        )
+
+        r = _get_redis_client()
+        now = datetime.now(timezone.utc)
+
+        eval_count = int(ctx.storage.get("eval_count") or "0") + 1
+        ctx.storage.set("eval_count", str(eval_count))
+
+        # Gather context from Redis
+        active_tasks = get_active_tasks(r)
+        energy_json = r.get("energy:current")
+        profile_json = r.get("profiler:last_result")
+        calendar_json = r.get("sentinel:calendar:events")
+
+        # Build context prompt
+        context_prompt = build_evaluation_context(
+            active_tasks=active_tasks,
+            energy_json=energy_json,
+            profile_json=profile_json,
+            calendar_events_json=calendar_json,
+            now=now,
+            r=r,
+        )
+
+        # Call Claude for reasoning
+        llm_response = await call_claude(REMINDER_SYSTEM_PROMPT, context_prompt)
+
+        # Parse and publish reminders
+        reminders = parse_reminder_response(llm_response)
+
+        if not reminders:
+            logger.debug("Eval cycle %d — no reminders warranted", eval_count)
+            return
+
+        sent = 0
+        for reminder in reminders:
+            task_id = reminder.get("task_id", "")
+
+            # Double-check snooze (defense in depth — LLM should also skip snoozed)
+            if task_id and r.exists(f"reminder:snoozed:{task_id}"):
+                logger.debug("Skipping snoozed task %s", task_id)
+                continue
+
+            notification = {
+                "reminder_type": reminder["type"],
+                "task_id": task_id,
+                "title": reminder["title"],
+                "message": reminder["message"],
+                "urgency": reminder["urgency"],
+                "suggested_actions": reminder.get("actions", []),
+                "timestamp": now.isoformat(),
+            }
+
+            # Publish to Redis channel for server relay
+            r.publish("reminder:events", json.dumps({
+                "event": "reminder",
+                "notification": notification,
+            }))
+
+            # Update cooldown
+            if task_id:
+                r.set(
+                    f"reminder:last_sent:{task_id}",
+                    now.isoformat(),
+                    ex=3600,
+                )
+
+            sent += 1
+
+        total_sent = int(ctx.storage.get("reminders_sent") or "0") + sent
+        ctx.storage.set("reminders_sent", str(total_sent))
+        logger.info("Eval cycle %d — sent %d reminder(s) (total: %d)", eval_count, sent, total_sent)
+
+    # ── Voice Command Handler ────────────────────────────────────────────
+
+    @agent.on_message(VoiceCommand)
+    async def handle_voice_command(ctx: Context, sender: str, cmd: VoiceCommand):
+        """Process voice commands routed through the agent network."""
+        r = _get_redis_client()
+        logger.info("VoiceCommand: type=%s, task=%s, source=%s", cmd.command_type, cmd.task_id, cmd.source)
+
+        if cmd.command_type == "complete_task":
+            task = Task.from_redis(r, cmd.task_id)
+            if task:
+                task.status = TaskStatus.COMPLETED
+                task.to_redis(r)
+                r.srem("task:active", cmd.task_id)
+                logger.info("Task %s marked COMPLETED via voice", cmd.task_id)
+
+                # Notify Scheduler Kernel to reoptimize
+                if SCHEDULER_KERNEL_ADDRESS:
+                    await ctx.send(
+                        SCHEDULER_KERNEL_ADDRESS,
+                        ScheduleRequest(
+                            action="reoptimize",
+                            payload={"completed_task_id": cmd.task_id},
+                        ),
+                    )
+
+        elif cmd.command_type == "start_task":
+            task = Task.from_redis(r, cmd.task_id)
+            if task:
+                task.status = TaskStatus.IN_PROGRESS
+                task.to_redis(r)
+                logger.info("Task %s marked IN_PROGRESS via voice", cmd.task_id)
+
+        elif cmd.command_type == "snooze_reminder":
+            snooze_minutes = cmd.payload.get("minutes", 15)
+            r.set(
+                f"reminder:snoozed:{cmd.task_id}",
+                "1",
+                ex=int(snooze_minutes) * 60,
+            )
+            logger.info("Task %s snoozed for %d minutes", cmd.task_id, snooze_minutes)
+
+    # ── Schedule Update Listener ─────────────────────────────────────────
+
+    @agent.on_message(UpdatedSchedule)
+    async def handle_schedule_update(ctx: Context, sender: str, msg: UpdatedSchedule):
+        """Keep awareness of schedule changes for next evaluation cycle."""
+        logger.debug(
+            "Schedule update received: %d tasks, trigger=%s",
+            len(msg.schedule),
+            msg.trigger,
+        )
+
+    # ── Chat Protocol ────────────────────────────────────────────────────
+
+    async def _chat_handler(ctx: Context, sender: str, text: str) -> str:
+        eval_count = ctx.storage.get("eval_count") or "0"
+        total_sent = ctx.storage.get("reminders_sent") or "0"
+        return (
+            f"I'm the Reminder Agent — I proactively notify you about upcoming tasks, "
+            f"check in on progress, and prompt task transitions. "
+            f"Evaluations: {eval_count}, Reminders sent: {total_sent}."
+        )
+
+    chat_proto = create_chat_protocol(
+        "Reminder Agent",
+        "Intelligently reminds you about upcoming tasks, check-ins, and transitions",
         _chat_handler,
     )
     agent.include(chat_proto, publish_manifest=True)

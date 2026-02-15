@@ -9,6 +9,7 @@ import type {
   WSMessage,
   UpdatedSchedule,
   DisruptionEvent,
+  ReminderNotification,
 } from "@/types/schedule";
 
 interface ScheduleState {
@@ -17,6 +18,7 @@ interface ScheduleState {
   swappingTaskIds: Set<string>;
   swapDirections: Map<string, "in" | "out">;
   lastDisruption: DisruptionEvent | null;
+  activeReminder: ReminderNotification | null;
   agentLog: AgentLogEntry[];
   drafts: Draft[];
 }
@@ -36,6 +38,7 @@ export function useScheduleStore(initialTasks: Task[] = []) {
     swappingTaskIds: new Set(),
     swapDirections: new Map(),
     lastDisruption: null,
+    activeReminder: null,
     agentLog: [],
     drafts: [],
   });
@@ -194,6 +197,16 @@ export function useScheduleStore(initialTasks: Task[] = []) {
             removeDraft(status.draft_id);
           }
           addLogEntry("GhostWorker", status.message, "ghostworker");
+          break;
+        }
+        case "reminder": {
+          const notification = message.payload as ReminderNotification;
+          setState((prev) => ({ ...prev, activeReminder: notification }));
+          addLogEntry(
+            "Reminder Agent",
+            `${notification.title}: ${notification.message}`,
+            "info"
+          );
           break;
         }
         case "agent_activity": {

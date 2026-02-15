@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch the FastAPI server and all 6 Rewind agents in one process.
+"""Launch the FastAPI server and all 7 Rewind agents in one process.
 
 Usage:
     # From the backend/ directory with the venv activated:
@@ -19,6 +19,7 @@ Ports:
     8004  Context Sentinel
     8005  GhostWorker
     8006  Profiler Agent
+    8007  Reminder Agent
 """
 
 from __future__ import annotations
@@ -66,6 +67,7 @@ def _run_agent(factory_name: str, port: int):
         create_energy_monitor,
         create_ghost_worker,
         create_profiler_agent,
+        create_reminder_agent,
         create_scheduler_kernel,
     )
 
@@ -76,6 +78,7 @@ def _run_agent(factory_name: str, port: int):
         "energy_monitor": create_energy_monitor,
         "ghost_worker": create_ghost_worker,
         "profiler_agent": create_profiler_agent,
+        "reminder_agent": create_reminder_agent,
     }
 
     factory_fn = factories[factory_name]
@@ -93,6 +96,7 @@ AGENTS = [
     ("context_sentinel",    8004),
     ("ghost_worker",        8005),
     ("profiler_agent",      8006),
+    ("reminder_agent",      8007),
 ]
 
 

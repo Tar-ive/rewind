@@ -165,6 +165,78 @@ export function useElevenLabsAgent(options: UseElevenLabsAgentOptions = {}) {
         return "Failed to fetch drafts.";
       }
     },
+
+    complete_task: async (params: { task_id: string }) => {
+      try {
+        const res = await fetch(`${API_URL}/api/tasks/${params.task_id}/complete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        if (data.status === "completed") {
+          return `Task "${data.title}" marked as complete. Your schedule has been updated.`;
+        }
+        return `Could not complete task: ${data.error || "unknown error"}`;
+      } catch {
+        return "Failed to mark task as complete.";
+      }
+    },
+
+    start_task: async (params: { task_id: string }) => {
+      try {
+        const res = await fetch(`${API_URL}/api/tasks/${params.task_id}/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        if (data.status === "in_progress") {
+          return `Task "${data.title}" is now in progress. Good luck!`;
+        }
+        return `Could not start task: ${data.error || "unknown error"}`;
+      } catch {
+        return "Failed to start task.";
+      }
+    },
+
+    snooze_reminder: async (params: { task_id?: string; minutes?: number }) => {
+      try {
+        const res = await fetch(`${API_URL}/api/reminders/snooze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            task_id: params.task_id ?? "",
+            minutes: params.minutes ?? 15,
+          }),
+        });
+        const data = await res.json();
+        return `Reminder snoozed for ${data.minutes} minutes.`;
+      } catch {
+        return "Failed to snooze reminder.";
+      }
+    },
+
+    whats_next: async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/schedule`);
+        const data = await res.json();
+        const tasks = (data.tasks ?? []).filter(
+          (t: { status: string }) => t.status === "scheduled" || t.status === "in_progress"
+        );
+        if (tasks.length === 0) return "You have no upcoming tasks. Enjoy the free time!";
+        const next = tasks[0] as { title: string; priority: string; estimated_duration: number; status: string };
+        let response = `Your next task is "${next.title}" (${next.priority}, ${next.estimated_duration} minutes).`;
+        if (next.status === "in_progress") {
+          response = `You're currently working on "${next.title}" (${next.priority}, ${next.estimated_duration} minutes).`;
+        }
+        if (tasks.length > 1) {
+          const after = tasks[1] as { title: string };
+          response += ` After that: "${after.title}".`;
+        }
+        return response;
+      } catch {
+        return "Failed to fetch your schedule.";
+      }
+    },
   };
 
   // ── ElevenLabs conversation hook ──────────────────────────────────────

@@ -52,6 +52,16 @@ export interface UpdatedSchedule {
   timestamp: string;
 }
 
+export interface ReminderNotification {
+  reminder_type: "upcoming_task" | "check_in" | "completion_check" | "transition";
+  task_id: string;
+  title: string;
+  message: string;
+  urgency: "low" | "medium" | "high";
+  suggested_actions: string[];
+  timestamp: string;
+}
+
 // WebSocket message types
 export type WSMessageType =
   | "updated_schedule"
@@ -61,7 +71,8 @@ export type WSMessageType =
   | "delegation_update"
   | "ghost_worker_status"
   | "ghostworker_draft"
-  | "agent_activity";
+  | "agent_activity"
+  | "reminder";
 
 export interface WSMessage {
   type: WSMessageType;
