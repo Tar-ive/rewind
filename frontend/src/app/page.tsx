@@ -5,6 +5,7 @@ import AgentActivityLog from "@/components/AgentActivityLog";
 import DraftReview from "@/components/DraftReview";
 import TaskInput from "@/components/TaskInput";
 import VoiceAgent from "@/components/VoiceAgent";
+import DemoControls from "@/components/DemoControls";
 import type { Draft } from "@/components/DraftReview";
 import { useScheduleStore } from "@/lib/useScheduleStore";
 import { useWebSocket } from "@/lib/useWebSocket";
@@ -82,6 +83,12 @@ export default function Home() {
           `Approved & sending: ${draft.subject || draft.channel || draft.task_type}`,
           "ghostworker"
         );
+
+        // For email drafts, open Gmail compose in a new tab for visual demo
+        if (draft.task_type === "email_reply" && draft.recipient) {
+          const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(draft.recipient)}&su=${encodeURIComponent(draft.subject || "")}&body=${encodeURIComponent(draft.body)}`;
+          window.open(gmailUrl, "_blank");
+        }
       }
       try {
         await fetch(`${API_URL}/api/ghostworker/drafts/${draftId}/approve`, {
@@ -99,7 +106,15 @@ export default function Home() {
 
   const handleEditDraft = useCallback(
     async (draftId: string, editedBody: string) => {
+      const draft = store.drafts.find((d) => d.id === draftId);
       store.addLogEntry("GhostWorker", "Draft edited & sent", "ghostworker");
+
+      // For email drafts, open Gmail compose with edited body
+      if (draft && draft.task_type === "email_reply" && draft.recipient) {
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(draft.recipient)}&su=${encodeURIComponent(draft.subject || "")}&body=${encodeURIComponent(editedBody)}`;
+        window.open(gmailUrl, "_blank");
+      }
+
       try {
         await fetch(`${API_URL}/api/ghostworker/drafts/${draftId}/approve`, {
           method: "POST",
@@ -129,10 +144,37 @@ export default function Home() {
     [store]
   );
 
-  // Split tasks
-  const activeTasks = store.tasks.filter(
-    (t) => t.status === "scheduled" || t.status === "in_progress"
+  const handleAgentAction = useCallback(
+    async (actionId: string) => {
+      // actionId format: "delegate:task-6"
+      if (actionId.startsWith("delegate:")) {
+        const taskId = actionId.replace("delegate:", "");
+        store.addLogEntry(
+          "Scheduler Kernel",
+          `Delegating ${taskId} to GhostWorker...`,
+          "delegation"
+        );
+        try {
+          const res = await fetch(`${API_URL}/api/demo/ghostworker/${taskId}`, {
+            method: "POST",
+          });
+          if (!res.ok) throw new Error(`${res.status}`);
+        } catch {
+          store.addLogEntry("GhostWorker", `Failed to delegate ${taskId}`, "ghostworker");
+        }
+      }
+    },
+    [store]
   );
+
+  // Split tasks and sort by start time
+  const activeTasks = store.tasks
+    .filter((t) => t.status === "scheduled" || t.status === "in_progress")
+    .sort((a, b) => {
+      if (!a.start_time) return 1;
+      if (!b.start_time) return -1;
+      return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+    });
   const delegatedTasks = store.tasks.filter((t) => t.status === "delegated");
   const draftIds = store.drafts.map((d) => d.id);
 
@@ -331,12 +373,15 @@ export default function Home() {
           )}
 
           {/* Agent activity log */}
-          <AgentActivityLog entries={store.agentLog} />
+          <AgentActivityLog entries={store.agentLog} onAction={handleAgentAction} />
         </div>
       </div>
 
       {/* Voice Agent — floating mic */}
       <VoiceAgent draftIds={draftIds} />
+
+      {/* Demo Controls — floating panel */}
+      <DemoControls />
     </div>
   );
 }

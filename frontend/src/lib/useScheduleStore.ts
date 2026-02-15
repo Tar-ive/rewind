@@ -30,6 +30,8 @@ export interface AgentLogEntry {
   agent: string;
   message: string;
   type: "info" | "disruption" | "swap" | "delegation" | "ghostworker";
+  actionId?: string;    // e.g. "delegate:task-6" — makes entry clickable
+  actionLabel?: string; // e.g. "Delegate to GhostWorker"
 }
 
 export function useScheduleStore(initialTasks: Task[] = []) {
@@ -46,7 +48,13 @@ export function useScheduleStore(initialTasks: Task[] = []) {
   });
 
   const addLogEntry = useCallback(
-    (agent: string, message: string, type: AgentLogEntry["type"] = "info") => {
+    (
+      agent: string,
+      message: string,
+      type: AgentLogEntry["type"] = "info",
+      actionId?: string,
+      actionLabel?: string,
+    ) => {
       setState((prev) => ({
         ...prev,
         agentLog: [
@@ -56,6 +64,8 @@ export function useScheduleStore(initialTasks: Task[] = []) {
             agent,
             message,
             type,
+            actionId,
+            actionLabel,
           },
           ...prev.agentLog,
         ].slice(0, 100), // keep last 100
@@ -220,8 +230,16 @@ export function useScheduleStore(initialTasks: Task[] = []) {
             agent: string;
             message: string;
             type: AgentLogEntry["type"];
+            action_id?: string;
+            action_label?: string;
           };
-          addLogEntry(activity.agent, activity.message, activity.type);
+          addLogEntry(
+            activity.agent,
+            activity.message,
+            activity.type,
+            activity.action_id,
+            activity.action_label,
+          );
           break;
         }
         default:

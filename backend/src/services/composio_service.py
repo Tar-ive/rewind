@@ -221,7 +221,22 @@ class ComposioService:
         return self._execute("GOOGLECALENDAR_FIND_EVENT", args)
 
     # ══════════════════════════════════════════════════════════════════════
-    # LinkedIn
+    # Slack
+    # ══════════════════════════════════════════════════════════════════════
+
+    def send_slack_message(
+        self,
+        channel: str,
+        text: str,
+    ) -> dict[str, Any]:
+        """Send a Slack message via SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL."""
+        return self._execute("SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL", {
+            "channel": channel,
+            "text": text,
+        })
+
+    # ══════════════════════════════════════════════════════════════════════
+    # LinkedIn (placeholder — not connected)
     # ══════════════════════════════════════════════════════════════════════
 
     def get_linkedin_profile(self) -> dict[str, Any]:

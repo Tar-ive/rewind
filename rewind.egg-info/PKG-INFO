@@ -14,3 +14,10 @@ Requires-Dist: fastapi
 Requires-Dist: uvicorn
 Requires-Dist: python-dotenv
 Requires-Dist: httpx
+Requires-Dist: composio
+Requires-Dist: composio-langchain
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: fakeredis; extra == "test"
+Requires-Dist: httpx; extra == "test"

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { API_URL } from "@/lib/constants";
+import { MOCK_CALENDAR_EVENTS } from "@/lib/mockCalendar";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -73,12 +74,42 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<"google" | "local">("local");
   const [view, setView] = useState<"week" | "day">("week");
   const [weekOffset, setWeekOffset] = useState(0);
 
   const weekStart = getWeekStart(addDays(new Date(), weekOffset * 7));
 
-  const fetchEvents = useCallback(async () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function parseCalendarItems(rawItems: any[]): CalendarEvent[] {
+    return rawItems.map((e) => {
+      const startStr =
+        typeof e.start === "string"
+          ? e.start
+          : e.start?.dateTime ?? e.start?.date ?? "";
+      const endStr =
+        typeof e.end === "string"
+          ? e.end
+          : e.end?.dateTime ?? e.end?.date ?? "";
+      return {
+        id: e.id || String(Math.random()),
+        title: e.summary || e.title || "Untitled",
+        start: startStr,
+        end: endStr,
+        description: e.description || undefined,
+        location: e.location || undefined,
+      };
+    });
+  }
+
+  function loadMockEvents() {
+    const parsed = parseCalendarItems(MOCK_CALENDAR_EVENTS);
+    setEvents(parsed.sort((a, b) => a.start.localeCompare(b.start)));
+    setError(null);
+    setLoading(false);
+  }
+
+  const fetchGoogleEvents = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -93,44 +124,22 @@ export default function CalendarPage() {
 
       if (data.error || data.successful === false) {
         const raw = data.error || "Unknown error";
-        // Show a friendly message for common errors
         const friendly = raw.includes("ConnectedAccountNotFound")
-          ? "Google Calendar is not connected. Connect it from the Integrations page."
+          ? "Google Calendar not connected. Go to Integrations to connect, or view the Before Rewind schedule."
           : raw;
         setError(friendly);
         setEvents([]);
       } else {
-        // Normalize event shape from Composio/Google Calendar API
-        // Response shape: { data: { items: [...] } } or { events: [...] }
         const rawItems =
           data.events ??
           data.data?.items ??
           (Array.isArray(data.data) ? data.data : []);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const parsed: CalendarEvent[] = rawItems.map((e: any) => {
-          // Google Calendar returns start/end as objects: { dateTime, date, timeZone }
-          const startStr =
-            typeof e.start === "string"
-              ? e.start
-              : e.start?.dateTime ?? e.start?.date ?? "";
-          const endStr =
-            typeof e.end === "string"
-              ? e.end
-              : e.end?.dateTime ?? e.end?.date ?? "";
-          return {
-            id: e.id || String(Math.random()),
-            title: e.summary || e.title || "Untitled",
-            start: startStr,
-            end: endStr,
-            description: e.description || undefined,
-            location: e.location || undefined,
-          };
-        });
+        const parsed = parseCalendarItems(rawItems);
         setEvents(parsed.sort((a, b) => a.start.localeCompare(b.start)));
       }
     } catch {
-      setError("Failed to fetch calendar events. Is Google Calendar connected?");
+      setError("Failed to fetch calendar events.");
       setEvents([]);
     } finally {
       setLoading(false);
@@ -138,12 +147,22 @@ export default function CalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekOffset]);
 
+  // Load data based on selected source
   useEffect(() => {
-    fetchEvents();
-    // Refetch every 30s to pick up new events (e.g. from voice-added tasks)
-    const interval = setInterval(fetchEvents, 30_000);
+    if (source === "local") {
+      loadMockEvents();
+    } else {
+      fetchGoogleEvents();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, fetchGoogleEvents]);
+
+  // Auto-refresh when viewing Google Calendar
+  useEffect(() => {
+    if (source !== "google") return;
+    const interval = setInterval(fetchGoogleEvents, 30_000);
     return () => clearInterval(interval);
-  }, [fetchEvents]);
+  }, [source, fetchGoogleEvents]);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -154,7 +173,32 @@ export default function CalendarPage() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <header className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
-        <h1 className="text-lg font-semibold text-white">Calendar</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold text-white">Calendar</h1>
+          {/* Source toggle */}
+          <div className="flex rounded-lg border border-zinc-700 overflow-hidden">
+            <button
+              onClick={() => setSource("local")}
+              className={`px-3 py-1 text-[11px] transition-colors ${
+                source === "local"
+                  ? "bg-violet-500/20 text-violet-300 border-r border-zinc-700"
+                  : "text-zinc-500 hover:text-zinc-300 border-r border-zinc-700"
+              }`}
+            >
+              Before Rewind
+            </button>
+            <button
+              onClick={() => setSource("google")}
+              className={`px-3 py-1 text-[11px] transition-colors ${
+                source === "google"
+                  ? "bg-green-500/20 text-green-300"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              Google Calendar
+            </button>
+          </div>
+        </div>
 
         {/* Week navigation */}
         <div className="flex items-center gap-3">

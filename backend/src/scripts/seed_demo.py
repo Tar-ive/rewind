@@ -26,8 +26,8 @@ def seed():
     r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
     clear_tasks(r)
 
-    from datetime import datetime, timezone
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # Use a fixed demo date for consistent demos
+    today = "2026-02-15"
 
     # ── Active tasks (Sarah's day) ───────────────────────────────────────
     active_tasks = [

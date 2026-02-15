@@ -15,7 +15,6 @@ dependencies = [
     "uvicorn",
     "python-dotenv",
     "httpx",
-    "uagents-composio-adapter",
     "composio",
     "composio-langchain",
 ]

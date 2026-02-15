@@ -72,7 +72,7 @@ def _get_redis() -> redis.Redis:
 
 def _task_to_frontend(task: Task) -> dict:
     """Convert backend Task to frontend Task format."""
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = "2026-02-15"  # Fixed demo date
     # Use preferred_start for start_time if available, otherwise use a placeholder
     start_time = task.preferred_start or f"{today}T09:00:00"
     try:
@@ -153,6 +153,8 @@ class ConnectionManager:
         agent_name: str,
         message: str,
         activity_type: str = "info",
+        action_id: str | None = None,
+        action_label: str | None = None,
     ):
         """Broadcast an agent_activity event to all connected clients.
 
@@ -160,12 +162,19 @@ class ConnectionManager:
             agent_name: Which agent produced this activity (e.g. "Context Sentinel").
             message: Human-readable description of what happened.
             activity_type: One of info | disruption | swap | delegation | ghostworker.
+            action_id: Optional — makes the entry clickable (e.g. "delegate:task-6").
+            action_label: Optional — button text for the clickable action.
         """
-        msg = _build_ws_message("agent_activity", {
+        payload = {
             "agent": agent_name,
             "message": message,
             "type": activity_type,
-        })
+        }
+        if action_id:
+            payload["action_id"] = action_id
+        if action_label:
+            payload["action_label"] = action_label
+        msg = _build_ws_message("agent_activity", payload)
         await self.broadcast(msg)
 
     async def _heartbeat_loop(self):
@@ -212,6 +221,10 @@ async def websocket_endpoint(ws: WebSocket):
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
         await ws.send_text(initial_msg)
+
+        # After a short delay, broadcast delegatable task suggestions
+        # so they appear as clickable entries in the Agent Activity log
+        asyncio.create_task(_delayed_delegatable_scan())
 
         # Keep connection alive, listen for client messages
         while True:
@@ -1414,42 +1427,117 @@ class DraftApprovalRequest(BaseModel):
 
 @app.post("/api/ghostworker/drafts/{draft_id}/approve")
 async def approve_draft(draft_id: str, req: DraftApprovalRequest = None):
-    """Approve a draft — publishes to Redis for GhostWorker agent to execute.
+    """Approve a draft — execute the action directly via Composio.
 
-    Pure relay — the server does NOT execute the action.
+    For email_reply: sends via Gmail (Composio GMAIL_SEND_EMAIL).
+    For slack_message: sends via Slack (Composio SLACK_SENDS_A_MESSAGE).
+    For linkedin_post: placeholder — logs success without sending.
+    For cancel_appointment/doc_update: placeholder — logs success.
     """
     r = _get_redis()
 
     # Verify draft exists
-    if not r.exists(f"ghostworker:draft:{draft_id}"):
+    draft_data = r.hgetall(f"ghostworker:draft:{draft_id}")
+    if not draft_data:
         return {"error": "Draft not found"}, 404
 
-    approval = {"action": "approve", "draft_id": draft_id}
-    if req and req.edited_body:
-        approval["edited_body"] = req.edited_body
+    task_type = draft_data.get("task_type", "")
+    body = (req.edited_body if req and req.edited_body else None) or draft_data.get("body", "")
+    recipient = draft_data.get("recipient", "")
+    subject = draft_data.get("subject", "")
+    channel = draft_data.get("channel", "")
+    result = {"successful": False, "error": "Unknown task type"}
 
-    r.publish("ghostworker:approvals", json.dumps(approval))
-    logger.info("Approval published for draft %s", draft_id)
+    svc = get_composio_service()
 
-    return {"status": "approval_sent", "draft_id": draft_id}
+    try:
+        if task_type == "email_reply" and recipient:
+            # Actually send via Gmail
+            result = svc.send_email(to=recipient, subject=subject, body=body)
+            action_label = f"Email sent to {recipient}"
+
+        elif task_type == "slack_message" and channel:
+            # Actually send via Slack
+            result = svc.send_slack_message(channel=channel, text=body)
+            action_label = f"Slack message sent to #{channel}"
+
+        elif task_type == "linkedin_post":
+            # Placeholder — LinkedIn not connected
+            result = {"successful": True, "data": "LinkedIn post queued (placeholder)"}
+            action_label = "LinkedIn post drafted (not connected)"
+
+        elif task_type in ("cancel_appointment", "meeting_reschedule"):
+            # Send as email if recipient exists, otherwise placeholder
+            if recipient:
+                result = svc.send_email(to=recipient, subject=subject, body=body)
+                action_label = f"Cancellation email sent to {recipient}"
+            else:
+                result = {"successful": True, "data": "Appointment action logged"}
+                action_label = f"Appointment action completed (placeholder)"
+
+        elif task_type == "doc_update":
+            result = {"successful": True, "data": "Document updated (placeholder)"}
+            action_label = "Document update logged"
+
+        else:
+            result = {"successful": True, "data": "Action completed"}
+            action_label = f"Action completed: {task_type}"
+
+    except Exception as exc:
+        logger.error("Draft execution failed for %s: %s", draft_id, exc)
+        result = {"successful": False, "error": str(exc)}
+        action_label = f"Failed: {str(exc)[:80]}"
+
+    # Clean up draft from Redis
+    r.delete(f"ghostworker:draft:{draft_id}")
+    r.srem("ghostworker:pending", draft_id)
+
+    # Broadcast result via WebSocket
+    status = "executed" if result.get("successful") else "failed"
+    await manager.broadcast_agent_activity(
+        "GhostWorker",
+        action_label,
+        "ghostworker",
+    )
+
+    # Also publish event so the relay listener picks it up
+    event = {
+        "event": f"draft_{status}",
+        "draft_id": draft_id,
+        "task_id": draft_data.get("task_id", ""),
+    }
+    r.publish("ghostworker:events", json.dumps(event))
+
+    logger.info("Draft %s %s: %s", draft_id, status, action_label)
+
+    return {"status": status, "draft_id": draft_id, "action": action_label, "result": result}
 
 
 @app.post("/api/ghostworker/drafts/{draft_id}/reject")
 async def reject_draft(draft_id: str):
-    """Reject a draft — publishes to Redis for GhostWorker agent to handle.
-
-    Pure relay — the server does NOT modify draft state.
-    """
+    """Reject a draft — clean up from Redis and notify frontend."""
     r = _get_redis()
 
-    if not r.exists(f"ghostworker:draft:{draft_id}"):
+    draft_data = r.hgetall(f"ghostworker:draft:{draft_id}")
+    if not draft_data:
         return {"error": "Draft not found"}, 404
 
-    rejection = {"action": "reject", "draft_id": draft_id}
-    r.publish("ghostworker:approvals", json.dumps(rejection))
-    logger.info("Rejection published for draft %s", draft_id)
+    # Clean up
+    r.delete(f"ghostworker:draft:{draft_id}")
+    r.srem("ghostworker:pending", draft_id)
 
-    return {"status": "rejection_sent", "draft_id": draft_id}
+    # Notify via WebSocket
+    await manager.broadcast_agent_activity(
+        "GhostWorker",
+        f"Draft rejected: {draft_data.get('subject') or draft_data.get('channel') or draft_id}",
+        "ghostworker",
+    )
+
+    event = {"event": "draft_rejected", "draft_id": draft_id, "task_id": draft_data.get("task_id", "")}
+    r.publish("ghostworker:events", json.dumps(event))
+
+    logger.info("Draft %s rejected and cleaned up", draft_id)
+    return {"status": "rejected", "draft_id": draft_id}
 
 
 # ── ElevenLabs Signed URL ─────────────────────────────────────────────────
@@ -1483,6 +1571,343 @@ async def get_elevenlabs_signed_url():
     except Exception as exc:
         logger.error("Failed to get ElevenLabs signed URL: %s", exc)
         return {"error": str(exc)}, 500
+
+
+# ── Demo Reset Endpoint ──────────────────────────────────────────────────
+
+@app.post("/api/demo/reset")
+async def demo_reset():
+    """Re-seed Redis with Sarah's demo schedule and broadcast to all clients.
+
+    Used by the frontend Demo Controls panel to reset the demo state.
+    """
+    global _energy_level, _sts
+
+    r = _get_redis()
+
+    # Clean up GhostWorker drafts
+    pending_ids = r.smembers("ghostworker:pending")
+    for draft_id in pending_ids:
+        r.delete(f"ghostworker:draft:{draft_id}")
+    r.delete("ghostworker:pending")
+    # Also clean any orphaned draft keys
+    for key in r.scan_iter("ghostworker:draft:*"):
+        r.delete(key)
+
+    # Re-run the seed script logic inline
+    from src.scripts.seed_demo import seed, clear_tasks
+    clear_tasks(r)
+    seed()
+
+    # Reset server state
+    _energy_level = 3
+    _sts = ShortTermScheduler()
+
+    # Broadcast fresh schedule to all connected clients
+    active = get_active_tasks(r)
+    frontend_tasks = [_task_to_frontend(t) for t in active]
+
+    msg = _build_ws_message("updated_schedule", {
+        "tasks": frontend_tasks,
+        "swaps": [],
+        "energy": {"level": _energy_level, "confidence": 0.5, "source": "time_based"},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    await manager.broadcast(msg)
+
+    # Broadcast energy reset
+    energy_msg = _build_ws_message("energy_update", {
+        "level": _energy_level,
+        "confidence": 0.5,
+        "source": "reset",
+    })
+    await manager.broadcast(energy_msg)
+
+    await manager.broadcast_agent_activity(
+        "Demo",
+        "Schedule reset — Sarah's day reloaded",
+        "info",
+    )
+
+    return {
+        "status": "reset",
+        "active_tasks": len(frontend_tasks),
+        "energy_level": _energy_level,
+    }
+
+
+# ── Demo: GhostWorker Draft Generation ───────────────────────────────────
+
+@app.post("/api/demo/ghostworker")
+async def demo_ghostworker():
+    """Generate realistic GhostWorker drafts for delegatable tasks.
+
+    Creates email, Slack, and cancellation drafts that appear in the
+    Pending Drafts panel for the user to approve/edit/reject.
+    """
+    import uuid
+
+    r = _get_redis()
+    drafts = []
+
+    # Draft 1: Email reply to Prof. Martinez (Gmail — real draft)
+    draft_email = {
+        "id": f"draft-{uuid.uuid4().hex[:8]}",
+        "task_id": "task-6",
+        "task_type": "email_reply",
+        "recipient": "prof.martinez@stanford.edu",
+        "subject": "RE: Research Assistant Position Follow-up",
+        "body": (
+            "Dear Professor Martinez,\n\n"
+            "Thank you so much for considering me for the research assistant position. "
+            "I'm very excited about the opportunity to contribute to your work on "
+            "reinforcement learning applications in robotics.\n\n"
+            "I'm available to meet this week — Wednesday or Thursday afternoon works "
+            "best for me. I've attached my updated CV and the course project report "
+            "you mentioned.\n\n"
+            "Looking forward to hearing from you.\n\n"
+            "Best regards,\nSarah"
+        ),
+        "cost_fet": 0.001,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    drafts.append(draft_email)
+
+    # Draft 2: Slack message to study group (Slack is connected — will actually send)
+    draft_slack = {
+        "id": f"draft-{uuid.uuid4().hex[:8]}",
+        "task_id": "task-7",
+        "task_type": "slack_message",
+        "channel": "general",
+        "body": (
+            "Hey everyone! Heads up — my schedule got disrupted today so I might "
+            "be a bit behind on the pset review. I'll have my part done by tonight "
+            "though. Can we push tomorrow's session to 11am instead of 10:30? "
+            "That gives me time to finish Q3. Thanks!"
+        ),
+        "cost_fet": 0.001,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    drafts.append(draft_slack)
+
+    # Draft 3: LinkedIn post (placeholder — LinkedIn not connected)
+    draft_linkedin = {
+        "id": f"draft-{uuid.uuid4().hex[:8]}",
+        "task_id": "task-b5",
+        "task_type": "linkedin_post",
+        "recipient": "",
+        "subject": "",
+        "channel": "",
+        "body": (
+            "Excited to share that I'm exploring how AI-powered scheduling agents "
+            "can help students with ADHD manage academic workloads more effectively.\n\n"
+            "Our project Rewind uses multi-agent systems built on @FetchAI's uAgents "
+            "framework to autonomously handle schedule disruptions, delegate busywork, "
+            "and adapt to energy levels in real time.\n\n"
+            "The future of productivity isn't about doing more — it's about intelligent "
+            "prioritization.\n\n"
+            "#AI #Productivity #ADHD #FetchAI #Agentverse #Hackathon"
+        ),
+        "cost_fet": 0.001,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    drafts.append(draft_linkedin)
+
+    # Draft 4: Cancel dentist appointment (placeholder email)
+    draft_cancel = {
+        "id": f"draft-{uuid.uuid4().hex[:8]}",
+        "task_id": "task-b4",
+        "task_type": "cancel_appointment",
+        "recipient": "",
+        "subject": "Appointment Cancellation — Sarah Chen",
+        "body": (
+            "Hi,\n\n"
+            "I need to cancel my appointment scheduled for Wednesday at 2:00 PM. "
+            "I have an academic conflict that I can't reschedule.\n\n"
+            "Could you please reschedule me for sometime next week? "
+            "Thursday or Friday afternoon would be ideal.\n\n"
+            "Thank you,\nSarah Chen\nPhone: (650) 555-0142"
+        ),
+        "cost_fet": 0.01,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    drafts.append(draft_cancel)
+
+    # Store drafts in Redis and broadcast to frontend
+    for draft in drafts:
+        # Store in Redis
+        r.hset(f"ghostworker:draft:{draft['id']}", mapping=draft)
+        r.sadd("ghostworker:pending", draft["id"])
+
+        # Broadcast via WebSocket
+        ws_msg = _build_ws_message("ghostworker_draft", draft)
+        await manager.broadcast(ws_msg)
+
+        # Agent activity log
+        type_labels = {
+            "email_reply": "email reply",
+            "slack_message": "Slack message",
+            "cancel_appointment": "appointment cancellation",
+        }
+        label = type_labels.get(draft["task_type"], draft["task_type"])
+        await manager.broadcast_agent_activity(
+            "GhostWorker",
+            f"Drafted {label}: {draft.get('subject') or draft.get('channel', '')}",
+            "ghostworker",
+        )
+
+    total_cost = sum(float(d.get("cost_fet", 0.001)) for d in drafts)
+    await manager.broadcast_agent_activity(
+        "Scheduler Kernel",
+        f"Delegated {len(drafts)} tasks to GhostWorker ({total_cost:.3f} FET total)",
+        "delegation",
+    )
+
+    return {"drafts_created": len(drafts), "draft_ids": [d["id"] for d in drafts]}
+
+
+# ── Single-task GhostWorker delegation (invoked from clickable agent activity) ─
+
+# Pre-built draft templates keyed by task_id
+_DRAFT_TEMPLATES: dict = {
+    "task-6": {
+        "task_type": "email_reply",
+        "recipient": "prof.martinez@stanford.edu",
+        "subject": "RE: Research Assistant Position Follow-up",
+        "channel": "",
+        "body": (
+            "Dear Professor Martinez,\n\n"
+            "Thank you so much for considering me for the research assistant position. "
+            "I'm very excited about the opportunity to contribute to your work on "
+            "reinforcement learning applications in robotics.\n\n"
+            "I'm available to meet this week — Wednesday or Thursday afternoon works "
+            "best for me. I've attached my updated CV and the course project report "
+            "you mentioned.\n\n"
+            "Looking forward to hearing from you.\n\n"
+            "Best regards,\nSarah"
+        ),
+        "cost_fet": 0.001,
+    },
+    "task-7": {
+        "task_type": "slack_message",
+        "recipient": "",
+        "subject": "",
+        "channel": "general",
+        "body": (
+            "Hey everyone! Heads up — my schedule got disrupted today so I might "
+            "be a bit behind on the pset review. I'll have my part done by tonight "
+            "though. Can we push tomorrow's session to 11am instead of 10:30? "
+            "That gives me time to finish Q3. Thanks!"
+        ),
+        "cost_fet": 0.001,
+    },
+    "task-b4": {
+        "task_type": "cancel_appointment",
+        "recipient": "",
+        "subject": "Appointment Cancellation — Sarah Chen",
+        "channel": "",
+        "body": (
+            "Hi,\n\n"
+            "I need to cancel my appointment scheduled for Wednesday at 2:00 PM. "
+            "I have an academic conflict that I can't reschedule.\n\n"
+            "Could you please reschedule me for sometime next week? "
+            "Thursday or Friday afternoon would be ideal.\n\n"
+            "Thank you,\nSarah Chen\nPhone: (650) 555-0142"
+        ),
+        "cost_fet": 0.01,
+    },
+}
+
+
+@app.post("/api/demo/ghostworker/{task_id}")
+async def demo_ghostworker_single(task_id: str):
+    """Generate a single GhostWorker draft for a specific task.
+
+    Called when user clicks a suggested delegation in the Agent Activity log.
+    """
+    import uuid as _uuid
+
+    template = _DRAFT_TEMPLATES.get(task_id)
+    if not template:
+        return {"error": f"No draft template for {task_id}"}, 404
+
+    r = _get_redis()
+    draft = {
+        "id": f"draft-{_uuid.uuid4().hex[:8]}",
+        "task_id": task_id,
+        **template,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Store in Redis
+    r.hset(f"ghostworker:draft:{draft['id']}", mapping=draft)
+    r.sadd("ghostworker:pending", draft["id"])
+
+    # Broadcast via WebSocket
+    ws_msg = _build_ws_message("ghostworker_draft", draft)
+    await manager.broadcast(ws_msg)
+
+    type_labels = {
+        "email_reply": "email reply",
+        "slack_message": "Slack message",
+        "cancel_appointment": "appointment cancellation",
+    }
+    label = type_labels.get(draft["task_type"], draft["task_type"])
+
+    await manager.broadcast_agent_activity(
+        "GhostWorker",
+        f"Drafted {label}: {draft.get('subject') or draft.get('channel', '')}",
+        "ghostworker",
+    )
+    await manager.broadcast_agent_activity(
+        "Scheduler Kernel",
+        f"Delegated \"{task_id}\" to GhostWorker ({draft['cost_fet']} FET)",
+        "delegation",
+    )
+
+    return {"draft_id": draft["id"], "task_id": task_id}
+
+
+# ── Auto-detect delegatable tasks on WebSocket connect ────────────────────
+
+_DELEGATABLE_TYPES = {"email_reply", "slack_message", "cancel_appointment", "doc_update"}
+
+
+async def _delayed_delegatable_scan():
+    """Wait a moment after WS connect, then broadcast delegatable suggestions."""
+    await asyncio.sleep(2)  # Let the frontend settle
+    await _broadcast_delegatable_suggestions()
+
+
+async def _broadcast_delegatable_suggestions():
+    """Scan active tasks for delegatable types and broadcast clickable suggestions."""
+    r = _get_redis()
+    active = get_active_tasks(r)
+
+    # Check which tasks already have pending drafts — skip those
+    pending_ids = r.smembers("ghostworker:pending")
+    pending_task_ids = set()
+    for draft_id in pending_ids:
+        draft_data = r.hgetall(f"ghostworker:draft:{draft_id}")
+        if draft_data:
+            pending_task_ids.add(draft_data.get("task_id", ""))
+
+    for task in active:
+        if task.task_type in _DELEGATABLE_TYPES and task.task_id not in pending_task_ids:
+            type_labels = {
+                "email_reply": "email reply",
+                "slack_message": "Slack message",
+                "cancel_appointment": "appointment cancellation",
+                "doc_update": "doc update",
+            }
+            label = type_labels.get(task.task_type, task.task_type)
+            await manager.broadcast_agent_activity(
+                "Scheduler Kernel",
+                f"Detected automatable task: \"{task.title}\" — click to delegate to GhostWorker",
+                "delegation",
+                action_id=f"delegate:{task.task_id}",
+                action_label=f"Delegate {label}",
+            )
 
 
 if __name__ == "__main__":
