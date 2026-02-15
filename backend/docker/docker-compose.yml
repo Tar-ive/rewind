@@ -4,7 +4,7 @@ services:
     container_name: rewind-redis
     ports:
       - "6379:6379"   # Redis server
-      - "8001:8001"   # RedisInsight UI
+      - "8085:8001"   # RedisInsight UI (remapped to avoid agent port conflict)
     volumes:
       - redis_data:/data
     environment:

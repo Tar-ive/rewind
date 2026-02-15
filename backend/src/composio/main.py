@@ -249,8 +249,8 @@ async def run_comprehensive_test_suite():
 
 # Cell 4: Execution Entry Point
 # ============================================================================
-# Execute the test suite
-asyncio.run(run_comprehensive_test_suite())
+if __name__ == "__main__":
+    asyncio.run(run_comprehensive_test_suite())
 
 
 # Cell 5: Advanced Use Case - Intelligent Email Triage Agent

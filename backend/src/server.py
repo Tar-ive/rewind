@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from src.config.settings import REDIS_URL
-from src.models.task import TaskStatus
+from src.models.task import Task, TaskStatus
 from src.engine.task_buffer import get_active_tasks, get_backlog_tasks, store_task
 from src.engine.lts import plan_day
 from src.engine.mts import handle_disruption
