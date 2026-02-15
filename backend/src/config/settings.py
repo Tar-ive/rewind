@@ -50,3 +50,8 @@ ENERGY_MONITOR_ADDRESS: str = os.getenv("ENERGY_MONITOR_ADDRESS", "")
 TASK_BUCKET_COUNT: int = int(os.getenv("TASK_BUCKET_COUNT", "16"))
 DEFAULT_AVAILABLE_HOURS: int = int(os.getenv("DEFAULT_AVAILABLE_HOURS", "8"))
 DEFAULT_ENERGY_LEVEL: int = int(os.getenv("DEFAULT_ENERGY_LEVEL", "3"))
+
+# ── Server Configuration ─────────────────────────────────────────────────
+
+SERVER_HOST: str = os.getenv("SERVER_HOST", "0.0.0.0")
+SERVER_PORT: int = int(os.getenv("SERVER_PORT", "8000"))

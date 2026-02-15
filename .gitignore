@@ -12,3 +12,6 @@ coverage/
 *.bak
 .next/
 .claude/
+.venv/
+__pycache__/
+*.pyc

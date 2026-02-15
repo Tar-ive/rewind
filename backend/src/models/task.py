@@ -102,6 +102,11 @@ class Task:
     def to_dict(self) -> dict:
         d = asdict(self)
         d["tags"] = json.dumps(d["tags"])
+        # Ensure enums are stored as plain ints
+        d["priority"] = int(self.priority)
+        d["energy_cost"] = int(self.energy_cost)
+        d["cognitive_load"] = int(self.cognitive_load)
+        d["estimated_duration"] = int(self.estimated_duration)
         return d
 
     @classmethod
@@ -109,10 +114,14 @@ class Task:
         data = dict(data)  # copy
         if isinstance(data.get("tags"), str):
             data["tags"] = json.loads(data["tags"])
-        # Ensure int fields
+        # Ensure int fields — handle enum repr strings like '<Priority.P1_IMPORTANT: 1>'
         for int_field in ("priority", "energy_cost", "estimated_duration", "cognitive_load"):
             if int_field in data and isinstance(data[int_field], str):
-                data[int_field] = int(data[int_field])
+                val = data[int_field]
+                # Handle enum repr: '<Priority.P1_IMPORTANT: 1>'
+                if ":" in val and val.startswith("<"):
+                    val = val.split(":")[-1].strip().rstrip(">")
+                data[int_field] = int(val)
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
     def to_redis(self, r: redis.Redis) -> None:

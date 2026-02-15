@@ -1,0 +1,11 @@
+uagents
+uagents-core
+anthropic
+redisvl
+redis
+sentence-transformers
+pandas
+fastapi
+uvicorn
+python-dotenv
+httpx

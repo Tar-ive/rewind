@@ -1,16 +1,15 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import ScheduleTimeline from "@/components/ScheduleTimeline";
 import AgentActivityLog from "@/components/AgentActivityLog";
-import TaskInputForm from "@/components/TaskInputForm";
 import DraftReview from "@/components/DraftReview";
 import type { Draft } from "@/components/DraftReview";
 import { useScheduleStore } from "@/lib/useScheduleStore";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { MOCK_TASKS } from "@/lib/mockData";
 import { WS_URL } from "@/lib/constants";
-import type { Priority, Task } from "@/types/schedule";
+import { PRIORITY_CONFIG } from "@/lib/constants";
+import type { Task } from "@/types/schedule";
 
 // Mock draft for demo purposes (will come from WebSocket in production)
 const MOCK_DRAFTS: Draft[] = [
@@ -35,50 +34,20 @@ const MOCK_DRAFTS: Draft[] = [
   },
 ];
 
+const SEVERITY_COLORS = {
+  minor: "text-yellow-400",
+  major: "text-orange-400",
+  critical: "text-red-400",
+};
+
 export default function Home() {
   const store = useScheduleStore(MOCK_TASKS);
-  const [showTaskForm, setShowTaskForm] = useState(false);
   const [drafts, setDrafts] = useState<Draft[]>(MOCK_DRAFTS);
 
   const { status } = useWebSocket({
     url: WS_URL,
     onMessage: store.handleWSMessage,
   });
-
-  const handleAddTask = useCallback(
-    (taskData: {
-      title: string;
-      description: string;
-      priority: Priority;
-      estimated_duration: number;
-      deadline: string;
-      energy_cost: number;
-    }) => {
-      const now = new Date();
-      const newTask: Task = {
-        id: `task-${Date.now()}`,
-        title: taskData.title,
-        description: taskData.description,
-        priority: taskData.priority,
-        start_time: now.toISOString(),
-        end_time: new Date(
-          now.getTime() + taskData.estimated_duration * 60000
-        ).toISOString(),
-        energy_cost: taskData.energy_cost,
-        estimated_duration: taskData.estimated_duration,
-        status: "scheduled",
-        delegatable: false,
-      };
-      store.setTasks([...store.tasks, newTask]);
-      store.addLogEntry(
-        "Scheduler Kernel",
-        `New task added: "${taskData.title}" (${taskData.priority})`,
-        "info"
-      );
-      setShowTaskForm(false);
-    },
-    [store]
-  );
 
   const handleApproveDraft = useCallback(
     (draftId: string) => {
@@ -119,6 +88,12 @@ export default function Home() {
     [store]
   );
 
+  // Count tasks by status
+  const activeTasks = store.tasks.filter(
+    (t) => t.status === "scheduled" || t.status === "in_progress"
+  );
+  const delegatedTasks = store.tasks.filter((t) => t.status === "delegated");
+
   return (
     <div className="flex h-screen flex-col">
       {/* Header */}
@@ -130,12 +105,6 @@ export default function Home() {
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => setShowTaskForm(true)}
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors"
-          >
-            + Add Task
-          </button>
           {store.energy && (
             <div className="flex items-center gap-2 text-xs text-zinc-400">
               <span>Energy</span>
@@ -170,31 +139,98 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main content — Split Screen */}
+      {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Schedule Timeline */}
-        <div className="flex-1 overflow-y-auto border-r border-zinc-800 p-4">
-          <div className="mb-4">
-            <h2 className="text-sm font-semibold text-zinc-300">
-              Today&apos;s Schedule
+        {/* Left: Active tasks + disruption status */}
+        <div className="flex-1 overflow-y-auto border-r border-zinc-800 p-4 space-y-4">
+          {/* Disruption banner */}
+          {store.lastDisruption && (
+            <div
+              className={`rounded-lg border px-4 py-3 ${
+                store.lastDisruption.severity === "critical"
+                  ? "border-red-500/30 bg-red-500/5"
+                  : store.lastDisruption.severity === "major"
+                    ? "border-orange-500/30 bg-orange-500/5"
+                    : "border-yellow-500/30 bg-yellow-500/5"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className={`text-xs font-semibold uppercase ${
+                    SEVERITY_COLORS[store.lastDisruption.severity]
+                  }`}
+                >
+                  {store.lastDisruption.severity} disruption
+                </span>
+                <span className="text-xs text-zinc-500">
+                  {store.lastDisruption.freed_minutes > 0
+                    ? `+${store.lastDisruption.freed_minutes}min gained`
+                    : `${store.lastDisruption.freed_minutes}min lost`}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400">
+                {store.lastDisruption.context_summary}
+              </p>
+            </div>
+          )}
+
+          {/* Active task list */}
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-300 mb-3">
+              Active Tasks
+              <span className="ml-2 text-[10px] font-normal text-zinc-500">
+                {activeTasks.length} scheduled
+                {delegatedTasks.length > 0 &&
+                  ` / ${delegatedTasks.length} delegated`}
+              </span>
             </h2>
-            <p className="text-xs text-zinc-600">
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}
-            </p>
+            <div className="space-y-2">
+              {activeTasks.map((task) => (
+                <ActiveTaskRow
+                  key={task.id}
+                  task={task}
+                  isSwapping={store.swappingTaskIds.has(task.id)}
+                  swapDirection={store.swapDirections.get(task.id)}
+                />
+              ))}
+              {activeTasks.length === 0 && (
+                <p className="text-xs text-zinc-600 py-4 text-center">
+                  No active tasks. Trigger daily planning to populate.
+                </p>
+              )}
+            </div>
           </div>
-          <ScheduleTimeline
-            tasks={store.tasks}
-            swappingTaskIds={store.swappingTaskIds}
-            swapDirections={store.swapDirections}
-          />
+
+          {/* Delegated tasks */}
+          {delegatedTasks.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-300 mb-3">
+                Delegated to GhostWorker
+              </h2>
+              <div className="space-y-2">
+                {delegatedTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2"
+                  >
+                    <span className="text-[10px] font-medium text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">
+                      GW
+                    </span>
+                    <span className="text-xs text-zinc-300 flex-1">
+                      {task.title}
+                    </span>
+                    <span className="text-[10px] text-zinc-500">
+                      {task.task_type}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: Drafts + Agent Activity Log */}
-        <div className="w-[400px] shrink-0 overflow-y-auto p-4 space-y-4">
+        <div className="w-[420px] shrink-0 overflow-y-auto p-4 space-y-4">
           {/* Pending drafts */}
           {drafts.length > 0 && (
             <div>
@@ -222,13 +258,70 @@ export default function Home() {
           <AgentActivityLog entries={store.agentLog} />
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Task input modal */}
-      {showTaskForm && (
-        <TaskInputForm
-          onSubmit={handleAddTask}
-          onClose={() => setShowTaskForm(false)}
-        />
+function ActiveTaskRow({
+  task,
+  isSwapping,
+  swapDirection,
+}: {
+  task: Task;
+  isSwapping: boolean;
+  swapDirection?: "in" | "out";
+}) {
+  const config = PRIORITY_CONFIG[task.priority];
+
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all ${
+        config.border
+      } ${config.bg} ${
+        isSwapping
+          ? swapDirection === "in"
+            ? "animate-[slide-in-right_0.5s_ease-out]"
+            : "animate-[slide-out-left_0.5s_ease-out]"
+          : ""
+      }`}
+    >
+      {/* Priority badge */}
+      <span
+        className={`text-[10px] font-bold ${config.color} min-w-[20px]`}
+      >
+        {task.priority}
+      </span>
+
+      {/* Task info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-zinc-200 truncate">{task.title}</p>
+        {task.description && (
+          <p className="text-[10px] text-zinc-500 truncate">
+            {task.description}
+          </p>
+        )}
+      </div>
+
+      {/* Duration */}
+      <span className="text-[10px] text-zinc-500 whitespace-nowrap">
+        {task.estimated_duration}min
+      </span>
+
+      {/* Energy dots */}
+      <div className="flex gap-0.5">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div
+            key={i}
+            className={`h-1.5 w-1.5 rounded-full ${
+              i < task.energy_cost ? "bg-amber-400" : "bg-zinc-700"
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Status */}
+      {task.status === "in_progress" && (
+        <span className="text-[10px] text-green-400">active</span>
       )}
     </div>
   );
