@@ -1,0 +1,50 @@
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        REWIND AGENT FLOW                                │
+│                                                                         │
+│  ┌──────────────┐    ContextChangeEvent    ┌─────────────────────┐     │
+│  │   CONTEXT     │ ───────────────────────► │   DISRUPTION        │     │
+│  │   SENTINEL    │                          │   DETECTOR          │     │
+│  │ (Calendar,    │                          │ (Classifies         │     │
+│  │  Gmail, Slack)│                          │  severity)          │     │
+│  └──────────────┘                          └─────────┬───────────┘     │
+│                                                       │                 │
+│                                          DisruptionEvent                │
+│                                                       │                 │
+│                                                       ▼                 │
+│  ┌──────────────┐   UserProfile    ┌─────────────────────────────┐     │
+│  │   PROFILER    │ ◄───────────────│      SCHEDULER KERNEL       │     │
+│  │   AGENT       │ ───────────────►│  (LTS / MTS / STS engine)   │     │
+│  │ (Behavioral   │   UserProfile   │                             │     │
+│  │  learning)    │    Response     │  Queries Profiler + Energy   │     │
+│  └──────────────┘                  │  Runs swap/priority logic    │     │
+│                                     │  Flags delegatable tasks     │     │
+│  ┌──────────────┐   EnergyLevel    │                             │     │
+│  │   ENERGY      │ ◄───────────────│                             │     │
+│  │   MONITOR     │ ───────────────►│                             │     │
+│  │ (Infers 1-5)  │  EnergyLevel    └──┬──────────────┬───────────┘     │
+│  └──────────────┘   Response          │              │                  │
+│                                        │              │                  │
+│                           UpdatedSchedule    DelegationTask             │
+│                                        │              │                  │
+│                                        ▼              ▼                  │
+│                               ┌─────────┐   ┌──────────────┐           │
+│                               │ Frontend │   │  GHOSTWORKER  │           │
+│                               │ (WS push)│   │ (Browser      │           │
+│                               └─────────┘   │  automation)  │           │
+│                                              │               │           │
+│                                              │ TaskCompletion│           │
+│                                              └───────┬──────┘           │
+│                                                       │                  │
+│                                                       ▼                  │
+│                                              Scheduler Kernel            │
+│                                              (updates state)             │
+└─────────────────────────────────────────────────────────────────────────┘
+
+HANDOFF RULES:
+1. Sentinel → Detector: ALWAYS (every context change is forwarded)
+2. Detector → Kernel: ONLY IF severity != "none" (filter noise)
+3. Kernel → Profiler: QUERY-RESPONSE (Kernel requests, Profiler responds)
+4. Kernel → Energy Monitor: QUERY-RESPONSE (Kernel requests, Monitor responds)
+5. Kernel → GhostWorker: CONDITIONAL (only if task passes automation classification)
+6. GhostWorker → Kernel: ALWAYS (every delegation returns a completion)
+7. Kernel → Frontend: ALWAYS (every schedule change pushed via WebSocket)

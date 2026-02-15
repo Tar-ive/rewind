@@ -1,0 +1,561 @@
+================================================================================
+  TECHNICAL REFERENCE
+  Building Multi-Agent Systems on Fetch.ai Agentverse
+  with uAgents and Claude Integration
+================================================================================
+
+  Scope:
+  Deep technical guide covering every layer of the stack — SDK fundamentals,
+  protocol design, Agentverse deployment, Chat and Payment protocols, Claude
+  integration patterns, and inter-agent communication wiring for Rewind.
+
+  uAgents SDK Version: v0.23.6 (uagents-core v0.3.4)
+  Python Support: 3.10 - 3.13
+  License: Apache 2.0
+
+
+================================================================================
+  1. uAGENTS SDK FUNDAMENTALS & AGENT CREATION
+================================================================================
+
+  1.1 AGENT CONSTRUCTOR & LIFECYCLE
+  ─────────────────────────────────
+
+  Every agent starts with the Agent class. The seed phrase is critical — it
+  deterministically generates a stable agent1q... address and cryptographic
+  key pair, so the same seed always produces the same identity.
+
+    from uagents import Agent, Context, Model
+
+    agent = Agent(
+        name="context_sentinel",
+        seed="context_sentinel_secret_seed_phrase",
+        port=8001,
+        endpoint=["http://localhost:8001/submit"],
+        mailbox=True,
+    )
+
+  KEY CONSTRUCTOR PARAMETERS
+  ──────────────────────────
+  name        Human-readable name (used in logs and key storage)
+  seed        Deterministic identity (best practice: use os.getenv() for secrets)
+  port        Local HTTP server port
+  endpoint    Public endpoint(s) for receiving messages
+  mailbox     True or a mailbox API key string (enables Agentverse connectivity)
+  test        Defaults to True for testnet; set False for mainnet
+
+  KEY AGENT PROPERTIES
+  ────────────────────
+  agent.address    The agent1q... identifier
+  agent.wallet     Blockchain wallet
+  agent.storage    Persistent key-value store
+
+  LIFECYCLE HOOKS
+  ───────────────
+
+    @agent.on_event("startup")
+    async def on_startup(ctx: Context):
+        ctx.logger.info(f"Agent started: {agent.address}")
+
+    @agent.on_event("shutdown")
+    async def on_shutdown(ctx: Context):
+        ctx.logger.info("Shutting down...")
+
+    if __name__ == "__main__":
+        agent.run()
+
+  When agent.run() executes, the framework:
+    1. Registers the agent on the Almanac API (and optionally on-chain)
+    2. Starts an HTTP server on the configured port
+    3. Begins executing interval tasks and listening for messages
+
+
+  1.2 MESSAGE MODELS (Pydantic BaseModel)
+  ────────────────────────────────────────
+
+  All inter-agent messages are typed using the Model class, which extends
+  Pydantic's BaseModel. This gives you validation, serialization, and schema
+  generation for free.
+
+    from uagents import Model, Field
+    from typing import Optional, List
+
+    class ContextUpdate(Model):
+        user_id: str = Field(description="Target user identifier")
+        active_apps: List[str] = Field(description="Currently active applications")
+        location: str
+        time_of_day: str
+        calendar_events: List[str] = []
+
+    class DisruptionAlert(Model):
+        user_id: str
+        disruption_type: str
+        severity: str          # "low", "medium", "high"
+        details: str
+
+    class ScheduleAction(Model):
+        task_id: str
+        description: str
+        priority: str
+        estimated_minutes: Optional[int] = None
+
+  Each model gets a unique schema digest (e.g. model:14d760ab...) that the
+  framework uses for message routing. Empty models like:
+
+    class Ping(Model):
+        pass
+
+  ...can serve as signal messages.
+
+
+  1.3 THE @on_message AND @on_interval DECORATORS
+  ────────────────────────────────────────────────
+
+  @on_message registers a handler for a specific message type. The handler
+  signature always takes ctx: Context, sender: str, and msg: MessageType.
+
+    @agent.on_message(model=ContextUpdate, replies={DisruptionAlert})
+    async def handle_context(ctx: Context, sender: str, msg: ContextUpdate):
+        ctx.logger.info(f"Context from {sender}: {msg.active_apps}")
+        await ctx.send(sender, DisruptionAlert(
+            user_id=msg.user_id,
+            disruption_type="app_switch",
+            severity="low",
+            details="Switched from IDE to browser"
+        ))
+
+  The "replies" parameter declares which message types this handler may send
+  back — this is used for protocol digest computation and Agentverse discovery.
+
+  @on_interval runs periodic tasks:
+
+    @agent.on_interval(period=30.0)   # Every 30 seconds
+    async def poll_context(ctx: Context):
+        count = ctx.storage.get("poll_count") or 0
+        ctx.logger.info(f"Polling context (#{count})")
+        ctx.storage.set("poll_count", count + 1)
+
+  Interval handlers only take ctx since they are self-triggered. The period
+  parameter is in seconds.
+
+
+  1.4 THE CONTEXT OBJECT
+  ──────────────────────
+
+  The ctx object passed to every handler is your primary interface:
+
+  Property / Method                          Purpose
+  ─────────────────────────────────────────  ─────────────────────────────────
+  ctx.logger.info() / .warning() / .error()  Structured logging
+  ctx.storage.get(key) / .set(key, value)    Persistent KV storage across restarts
+  await ctx.send(address, message)           Send a message to another agent
+  await ctx.broadcast(proto_digest, msg)     Broadcast to all agents with a protocol
+  ctx.agent.address                          This agent's address
+  ctx.agent.name                             This agent's name
+
+
+================================================================================
+  2. PROTOCOL SYSTEM & CUSTOM PROTOCOL DESIGN
+================================================================================
+
+  2.1 PROTOCOLS GROUP HANDLERS INTO REUSABLE MODULES
+  ──────────────────────────────────────────────────
+
+  A Protocol object packages related message types and handlers into a module
+  that can be included in any agent. Protocols have no identity and cannot run
+  independently.
+
+    from uagents import Protocol, Context, Model
+
+    class OrderRequest(Model):
+        item: str
+        quantity: int
+
+    class OrderConfirmation(Model):
+        order_id: str
+        total_price: float
+
+    class OrderRejection(Model):
+        reason: str
+
+    order_proto = Protocol(name="OrderProtocol", version="1.0.0")
+
+    @order_proto.on_message(model=OrderRequest,
+                            replies={OrderConfirmation, OrderRejection})
+    async def handle_order(ctx: Context, sender: str, msg: OrderRequest):
+        if msg.quantity > 0:
+            await ctx.send(sender, OrderConfirmation(
+                order_id="ORD-001", total_price=msg.quantity * 5.0
+            ))
+        else:
+            await ctx.send(sender, OrderRejection(reason="Invalid quantity"))
+
+    # Include in agent with manifest publishing for discovery
+    agent.include(order_proto, publish_manifest=True)
+
+  Each protocol generates a unique protocol digest based on its message models
+  and structure (e.g. proto:a03398ea81d7...). This digest is registered on the
+  Almanac, enabling protocol-based agent discovery.
+
+
+  2.2 PROTOCOLSPECIFICATION FOR FORMAL DEFINITIONS
+  ────────────────────────────────────────────────
+
+  The ProtocolSpecification class defines formal protocol structure with
+  interactions (valid message sequences) and roles (which participant sends
+  which messages). This is used by the built-in Chat and Payment protocols.
+
+    from uagents_core.protocol import ProtocolSpecification
+
+    rewind_protocol_spec = ProtocolSpecification(
+        name="RewindContextProtocol",
+        version="1.0.0",
+        interactions={
+            ContextUpdate: {DisruptionAlert, ProfileUpdate},
+            DisruptionAlert: {ScheduleAction},
+            ProfileUpdate: set(),          # Terminal message
+            ScheduleAction: set(),         # Terminal message
+        },
+        roles={
+            "sensor":   {ContextUpdate},
+            "analyzer": {DisruptionAlert, ProfileUpdate},
+            "schedule": {ScheduleAction},
+        },
+    )
+
+    # Create protocol with spec and role
+    sensor_proto = Protocol(spec=rewind_protocol_spec, role="sensor")
+
+
+================================================================================
+  3. CLAUDE INTEGRATION — AGENT-BY-AGENT IMPLEMENTATION
+================================================================================
+
+  3.1 SETUP
+  ─────────
+
+    from anthropic import AsyncAnthropic
+
+    client = AsyncAnthropic()   # Uses ANTHROPIC_API_KEY env var
+
+  Use AsyncAnthropic (not the sync client) when running inside a Bureau to
+  avoid blocking the shared event loop during Claude API calls.
+
+
+  3.2 FULL 6-AGENT IMPLEMENTATION
+  ───────────────────────────────
+
+  AGENT 1: CONTEXT SENTINEL (polls context, uses Haiku for speed)
+  ................................................................
+
+    sentinel = Agent(
+        name="context_sentinel",
+        seed="sentinel_v1",
+        port=8001,
+        endpoint=["http://127.0.0.1:8001/submit"],
+    )
+
+    @sentinel.on_interval(period=30.0)
+    async def poll(ctx: Context):
+        response = client.messages.create(
+            model="claude-3-5-haiku-20241022",
+            max_tokens=256,
+            system="Summarize current user context from system signals.",
+            messages=[{
+                "role": "user",
+                "content": "Active: VS Code, Slack. Calendar: standup in 15min."
+            }],
+        )
+        snapshot = response.content[0].text
+        await ctx.send(profiler.address, ContextSnapshot(
+            user_id="user-1", active_apps=["vscode", "slack"],
+            summary=snapshot
+        ))
+
+  AGENT 2: PROFILER (learns behavior patterns, uses Sonnet)
+  ..........................................................
+
+    profiler = Agent(
+        name="profiler_agent",
+        seed="profiler_v1",
+        port=8002,
+        endpoint=["http://127.0.0.1:8002/submit"],
+    )
+
+    @profiler.on_message(model=ContextSnapshot)
+    async def update_profile(ctx: Context, sender: str, msg: ContextSnapshot):
+        history = ctx.storage.get("profile_history") or []
+        history.append(msg.summary)
+        ctx.storage.set("profile_history", history[-50:])   # Keep last 50
+
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=512,
+            system="Analyze behavior patterns. Output: preferences, peak hours, habits.",
+            messages=[{
+                "role": "user",
+                "content": f"History:\n" + "\n".join(history[-10:])
+            }],
+        )
+        profile = response.content[0].text
+        ctx.storage.set("current_profile", profile)
+
+  AGENT 3: DISRUPTION DETECTOR (fast classification, uses Haiku)
+  ...............................................................
+
+    detector = Agent(
+        name="disruption_detector",
+        seed="detector_v1",
+        port=8003,
+        endpoint=["http://127.0.0.1:8003/submit"],
+    )
+
+    @detector.on_message(model=ContextSnapshot)
+    async def detect(ctx: Context, sender: str, msg: ContextSnapshot):
+        prev = ctx.storage.get("prev_context") or "none"
+        response = client.messages.create(
+            model="claude-3-5-haiku-20241022",
+            max_tokens=256,
+            system="Detect workflow disruptions. Output: type, severity, details. "
+                   "Say 'none' if clear.",
+            messages=[{
+                "role": "user",
+                "content": f"Prev: {prev}\nNow: {msg.active_apps}"
+            }],
+        )
+        ctx.storage.set("prev_context", str(msg.active_apps))
+        result = response.content[0].text
+        if "none" not in result.lower():
+            await ctx.send(scheduler.address, DisruptionAlert(
+                user_id=msg.user_id,
+                disruption_type="workflow_break",
+                severity="medium",
+                details=result,
+            ))
+
+  AGENT 4: SCHEDULER KERNEL (complex planning, uses Sonnet)
+  ..........................................................
+
+    scheduler = Agent(
+        name="scheduler_kernel",
+        seed="scheduler_v1",
+        port=8004,
+        endpoint=["http://127.0.0.1:8004/submit"],
+    )
+
+    @scheduler.on_message(model=DisruptionAlert)
+    async def plan_recovery(ctx: Context, sender: str, msg: DisruptionAlert):
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=1024,
+            system="Generate a recovery schedule with prioritized task assignments.",
+            messages=[{
+                "role": "user",
+                "content": f"Disruption: {msg.disruption_type}, "
+                           f"severity: {msg.severity}\n{msg.details}"
+            }],
+        )
+        plan = response.content[0].text
+        ctx.storage.set("current_plan", plan)
+        await ctx.send(ghost.address, ScheduleAction(
+            task_id="task-001",
+            description=plan,
+            priority="high",
+        ))
+
+  AGENT 5: GHOSTWORKER (task execution, uses Sonnet)
+  ...................................................
+
+    ghost = Agent(
+        name="ghost_worker",
+        seed="ghost_v1",
+        port=8005,
+        endpoint=["http://127.0.0.1:8005/submit"],
+    )
+
+    @ghost.on_message(model=ScheduleAction)
+    async def execute_task(ctx: Context, sender: str, msg: ScheduleAction):
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=512,
+            system="Execute the described task. Output the result.",
+            messages=[{
+                "role": "user",
+                "content": f"Execute: {msg.description}"
+            }],
+        )
+        await ctx.send(monitor.address, EnergyReport(
+            api_calls=1,
+            estimated_cost=0.003,
+            recommendations="normal",
+        ))
+
+  AGENT 6: ENERGY MONITOR (cost tracking, uses Haiku)
+  ....................................................
+
+    monitor = Agent(
+        name="energy_monitor",
+        seed="monitor_v1",
+        port=8006,
+        endpoint=["http://127.0.0.1:8006/submit"],
+    )
+
+    @monitor.on_message(model=EnergyReport)
+    async def track_energy(ctx: Context, sender: str, msg: EnergyReport):
+        total = ctx.storage.get("total_cost") or 0.0
+        total += msg.estimated_cost
+        ctx.storage.set("total_cost", total)
+        ctx.logger.info(f"Total API cost today: ${total:.4f}")
+
+
+  3.3 RUNNING ALL 6 AGENTS WITH BUREAU
+  ─────────────────────────────────────
+
+    from uagents import Bureau
+
+    bureau = Bureau()
+    for a in [sentinel, profiler, detector, scheduler, ghost, monitor]:
+        bureau.add(a)
+
+    if __name__ == "__main__":
+        bureau.run()
+
+  Bureau runs all agents in a single process with a shared event loop.
+  For production, consider distributed deployment (separate processes,
+  Almanac-resolved addresses, mailbox-mediated communication).
+
+
+  3.4 MODEL SELECTION STRATEGY
+  ────────────────────────────
+
+  Agent                  Model                  Rationale
+  ─────────────────────  ─────────────────────  ──────────────────────────────
+  Context Sentinel       claude-3-5-haiku       Frequent 30s polling; fast, cheap
+  Profiler               claude-sonnet-4-5      Medium complexity profile synthesis
+  Disruption Detector    claude-3-5-haiku       Fast binary classification
+  Scheduler Kernel       claude-sonnet-4-5      Complex planning needs strong reasoning
+  GhostWorker            claude-sonnet-4-5      Task execution, moderate complexity
+  Energy Monitor         claude-3-5-haiku       Simple metrics, infrequent calls
+
+
+================================================================================
+  4. ERROR HANDLING & CACHING FOR PRODUCTION
+================================================================================
+
+  Implement retry logic with exponential backoff and response caching via
+  ctx.storage:
+
+    import hashlib
+    from anthropic import RateLimitError, APIConnectionError
+
+    @agent.on_message(model=AIRequest, replies={AIResponse})
+    async def robust_handler(ctx: Context, sender: str, msg: AIRequest):
+        # Check cache first
+        cache_key = f"cache_{hashlib.md5(msg.question.encode()).hexdigest()}"
+        cached = ctx.storage.get(cache_key)
+        if cached:
+            await ctx.send(sender, AIResponse(answer=cached))
+            return
+
+        # Retry with exponential backoff
+        for attempt in range(3):
+            try:
+                response = client.messages.create(
+                    model="claude-sonnet-4-5-20250929",
+                    max_tokens=1024,
+                    messages=[{
+                        "role": "user",
+                        "content": msg.question
+                    }],
+                )
+                answer = response.content[0].text
+                ctx.storage.set(cache_key, answer)   # Cache for future
+                await ctx.send(sender, AIResponse(answer=answer))
+                return
+            except RateLimitError:
+                import asyncio
+                await asyncio.sleep(2 ** attempt)
+            except APIConnectionError:
+                if attempt == 2:
+                    await ctx.send(sender, AIResponse(
+                        answer="Service unavailable"
+                    ))
+
+
+================================================================================
+  5. ECOSYSTEM CONTEXT & ASI ALLIANCE LANDSCAPE
+================================================================================
+
+  KEY MILESTONES
+  ──────────────
+  - Mid-2024: ASI Alliance formed (Fetch.ai + SingularityNET merger)
+    Token merger: FET -> ASI at 1:1, AGIX -> ASI at 1:0.433
+  - Oct 2024: CUDOS joined as compute infrastructure partner
+  - Oct 2025: Ocean Protocol withdrew citing financial management concerns
+  - Dec 2025: First AI-to-AI autonomous payment demonstrated
+    (personal AIs booked restaurant via OpenTable, paid via Visa/USDC/FET,
+     both users offline — powered by Payment Protocol)
+  - Early 2026: Broad rollout of AI-to-AI payment capability expected
+
+  SDK v0.23.6 ADDITIONS
+  ─────────────────────
+  - Concurrent message handling
+  - REST endpoint support
+  - Broadcast capability
+  - Search API
+  - Adapter packages: CrewAI, LangChain, Anthropic, OpenAI Agent Builder
+  - Google A2A (Agent-to-Agent) outbound adapter
+
+  ASI:ONE DISCOVERY LAYER
+  ───────────────────────
+  - ASI:One is the agentic LLM serving as discovery and orchestration layer
+  - It indexes agents registered on the Almanac via Chat Protocol manifests
+  - Routes user queries to the most appropriate agent
+  - chat.agentverse.ai provides direct chat access to compatible agents
+  - Fetch.ai maintains a predeployed Claude Agent in Agentverse at address:
+    agent1qvk7q2av3e2y5gf5s90nfzkc8a48q3wdqeevwrtgqfd10k78rspd6f2l4dx
+    (rate-limited to 6 requests/hour)
+
+
+================================================================================
+  6. ARCHITECTURAL DECISIONS SUMMARY
+================================================================================
+
+  BUREAU vs DISTRIBUTED DEPLOYMENT
+  ─────────────────────────────────
+  Bureau (single process):
+    - Shared event loop
+    - Direct address references between agents
+    - Simpler for development and testing
+
+  Distributed (separate processes):
+    - Almanac-resolved addresses
+    - Mailbox-mediated communication
+    - Better for production scalability
+
+  KEY DECISIONS FOR REWIND
+  ────────────────────────
+  1. Model tier selection per agent (Haiku for frequent/simple, Sonnet for
+     complex reasoning)
+  2. Use ctx.storage for persistent state and LLM response caching
+  3. Use AsyncAnthropic client to avoid blocking the shared event loop
+  4. Enable mailbox=True on each agent for Agentverse connectivity
+  5. Include Chat Protocol with publish_manifest=True for ASI:One discoverability
+  6. Add Payment Protocol if monetization is needed
+
+
+================================================================================
+  HOW THIS DOCUMENT RELATES TO integration_roadmap.txt
+================================================================================
+
+  integration_roadmap.txt = HIGH-LEVEL PLAN (what to do, in what order)
+  This document             = TECHNICAL REFERENCE (how to do it, with code)
+
+  Use the roadmap for task prioritization and tracking.
+  Use this document when you need SDK APIs, code patterns, or implementation
+  details for each agent.
+
+
+================================================================================
+  END OF DOCUMENT
+================================================================================

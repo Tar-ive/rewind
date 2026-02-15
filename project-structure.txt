@@ -1,0 +1,75 @@
+rewind/
+├── README.md
+├── pyproject.toml
+├── .env.example
+├── requirements.txt
+│
+├── agents/                          # Each agent is its own module
+│   ├── __init__.py
+│   ├── context_sentinel.py          # Agent 1: Calendar/Email/Slack monitor
+│   ├── profiler_agent.py            # Agent 2: Behavioral learning
+│   ├── disruption_detector.py       # Agent 3: Disruption classification
+│   ├── scheduler_kernel.py          # Agent 4: OS-style scheduling brain
+│   ├── ghostworker.py               # Agent 5: Autonomous task execution
+│   └── energy_monitor.py            # Agent 6: Energy inference
+│
+├── protocols/                       # Typed message models & protocol specs
+│   ├── __init__.py
+│   ├── models.py                    # All Model subclasses (messages)
+│   ├── rewind_protocol.py           # ProtocolSpecification for inter-agent msgs
+│   ├── chat_setup.py                # Chat Protocol wiring for ASI:One
+│   └── payment_setup.py             # Payment Protocol for GhostWorker
+│
+├── engine/                          # Scheduling engine (non-agent logic)
+│   ├── __init__.py
+│   ├── task_buffer.py               # Redis-backed hash table
+│   ├── mlfq.py                      # Multi-Level Feedback Queue (P0-P3)
+│   ├── lts.py                       # Long-Term Scheduler
+│   ├── mts.py                       # Medium-Term Scheduler (swap engine)
+│   └── sts.py                       # Short-Term Scheduler
+│
+├── integrations/                    # External service wrappers
+│   ├── __init__.py
+│   ├── google_calendar.py           # Google Calendar API client
+│   ├── gmail_client.py              # Gmail API client
+│   ├── slack_client.py              # Slack API client
+│   └── stagehand_client.py          # Stagehand/Browserbase for GhostWorker
+│
+├── backend/                         # FastAPI server + WebSocket
+│   ├── __init__.py
+│   ├── main.py                      # FastAPI app, WebSocket endpoint
+│   ├── routes.py                    # REST endpoints
+│   └── ws_manager.py                # WebSocket connection manager
+│
+├── frontend/                        # Next.js app (separate)
+│   ├── package.json
+│   ├── src/
+│   │   ├── app/
+│   │   ├── components/
+│   │   │   ├── RiverTimeline.tsx
+│   │   │   ├── TaskCard.tsx
+│   │   │   ├── AgentLogPanel.tsx
+│   │   │   ├── GhostWorkerPanel.tsx
+│   │   │   └── VoiceInput.tsx
+│   │   └── lib/
+│   │       └── websocket.ts
+│   └── tailwind.config.ts
+│
+├── config/
+│   ├── __init__.py
+│   └── settings.py                  # Env vars, API keys, Redis URL, etc.
+│
+├── data/
+│   └── seed_profile.json            # Default UserProfile for cold-start
+│
+├── scripts/
+│   ├── register_agents.py           # Register all 6 agents on Agentverse
+│   ├── demo_trigger.py              # Simulate calendar disruption for demo
+│   └── run_all_agents.py            # Start all agents locally
+│
+└── tests/
+    ├── test_models.py
+    ├── test_task_buffer.py
+    ├── test_mlfq.py
+    ├── test_mts.py
+    └── test_agents_integration.py
