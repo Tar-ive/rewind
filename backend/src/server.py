@@ -6,6 +6,7 @@ triggering actions and querying state.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -104,17 +105,29 @@ def _build_ws_message(msg_type: str, payload: dict) -> str:
 # ── WebSocket Manager ────────────────────────────────────────────────────
 
 class ConnectionManager:
+    """WebSocket connection manager with heartbeat and agent activity support."""
+
+    HEARTBEAT_INTERVAL = 30  # seconds between pings
+
     def __init__(self):
         self._connections: list[WebSocket] = []
+        self._heartbeat_task: Optional[asyncio.Task] = None
 
     async def connect(self, ws: WebSocket):
         await ws.accept()
         self._connections.append(ws)
         logger.info(f"WebSocket connected. Total: {len(self._connections)}")
+        # Start heartbeat if this is the first connection
+        if self._heartbeat_task is None or self._heartbeat_task.done():
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
     def disconnect(self, ws: WebSocket):
-        self._connections.remove(ws)
+        if ws in self._connections:
+            self._connections.remove(ws)
         logger.info(f"WebSocket disconnected. Total: {len(self._connections)}")
+        # Stop heartbeat if no connections remain
+        if not self._connections and self._heartbeat_task and not self._heartbeat_task.done():
+            self._heartbeat_task.cancel()
 
     async def broadcast(self, message: str):
         disconnected = []
@@ -124,7 +137,46 @@ class ConnectionManager:
             except Exception:
                 disconnected.append(ws)
         for ws in disconnected:
-            self._connections.remove(ws)
+            if ws in self._connections:
+                self._connections.remove(ws)
+
+    async def broadcast_agent_activity(
+        self,
+        agent_name: str,
+        message: str,
+        activity_type: str = "info",
+    ):
+        """Broadcast an agent_activity event to all connected clients.
+
+        Args:
+            agent_name: Which agent produced this activity (e.g. "Context Sentinel").
+            message: Human-readable description of what happened.
+            activity_type: One of info | disruption | swap | delegation | ghostworker.
+        """
+        msg = _build_ws_message("agent_activity", {
+            "agent": agent_name,
+            "message": message,
+            "type": activity_type,
+        })
+        await self.broadcast(msg)
+
+    async def _heartbeat_loop(self):
+        """Send periodic ping frames to detect dead connections."""
+        try:
+            while self._connections:
+                await asyncio.sleep(self.HEARTBEAT_INTERVAL)
+                disconnected = []
+                for ws in self._connections:
+                    try:
+                        await ws.send_json({"type": "ping"})
+                    except Exception:
+                        disconnected.append(ws)
+                for ws in disconnected:
+                    if ws in self._connections:
+                        self._connections.remove(ws)
+                        logger.info("Heartbeat: removed dead connection")
+        except asyncio.CancelledError:
+            pass
 
     @property
     def count(self) -> int:
@@ -282,6 +334,20 @@ async def simulate_disruption(req: DisruptionRequest):
     })
     await manager.broadcast(disruption_msg)
 
+    # Agent activity: Context Sentinel detected the change
+    await manager.broadcast_agent_activity(
+        "Context Sentinel",
+        f"Detected {req.event_type} from {req.source}",
+        "info",
+    )
+
+    # Agent activity: Disruption Detector classified
+    await manager.broadcast_agent_activity(
+        "Disruption Detector",
+        f"Classified as {severity} — {action} ({abs(freed_minutes)}min {'gained' if freed_minutes >= 0 else 'lost'})",
+        "disruption",
+    )
+
     # Step 2: Scheduler Kernel runs MTS
     result = None
     if action == "reschedule_all":
@@ -334,6 +400,31 @@ async def simulate_disruption(req: DisruptionRequest):
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     await manager.broadcast(schedule_msg)
+
+    # Agent activity: Scheduler Kernel completed rescheduling
+    swap_summary_parts = []
+    if result and result.swapped_in:
+        swap_summary_parts.append(f"{len(result.swapped_in)} swapped in")
+    if result and result.swapped_out:
+        swap_summary_parts.append(f"{len(result.swapped_out)} swapped out")
+    if result and result.delegated:
+        swap_summary_parts.append(f"{len(result.delegated)} delegated")
+    swap_text = ", ".join(swap_summary_parts) if swap_summary_parts else "schedule reordered"
+
+    await manager.broadcast_agent_activity(
+        "Scheduler Kernel",
+        f"Rescheduled: {swap_text}. {len(frontend_tasks)} tasks active.",
+        "swap" if swaps else "info",
+    )
+
+    # Agent activity for individual delegations
+    if result and result.delegated:
+        for t in result.delegated:
+            await manager.broadcast_agent_activity(
+                "GhostWorker",
+                f"Task '{t.title}' delegated for autonomous execution",
+                "delegation",
+            )
 
     return {
         "severity": severity,
