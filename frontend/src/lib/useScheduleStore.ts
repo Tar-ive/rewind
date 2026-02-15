@@ -14,6 +14,7 @@ import type {
 
 interface ScheduleState {
   tasks: Task[];
+  backlog: Task[];
   energy: EnergyLevel | null;
   swappingTaskIds: Set<string>;
   swapDirections: Map<string, "in" | "out">;
@@ -34,6 +35,7 @@ export interface AgentLogEntry {
 export function useScheduleStore(initialTasks: Task[] = []) {
   const [state, setState] = useState<ScheduleState>({
     tasks: initialTasks,
+    backlog: [],
     energy: null,
     swappingTaskIds: new Set(),
     swapDirections: new Map(),
@@ -104,6 +106,10 @@ export function useScheduleStore(initialTasks: Task[] = []) {
       ...prev,
       drafts: prev.drafts.filter((d) => d.id !== draftId),
     }));
+  }, []);
+
+  const addTask = useCallback((task: Task) => {
+    setState((prev) => ({ ...prev, tasks: [...prev.tasks, task] }));
   }, []);
 
   const setDrafts = useCallback((drafts: Draft[]) => {
@@ -229,9 +235,11 @@ export function useScheduleStore(initialTasks: Task[] = []) {
     ...state,
     handleWSMessage,
     addLogEntry,
+    addTask,
     addDraft,
     removeDraft,
     setDrafts,
     setTasks: (tasks: Task[]) => setState((prev) => ({ ...prev, tasks })),
+    setBacklog: (backlog: Task[]) => setState((prev) => ({ ...prev, backlog })),
   };
 }

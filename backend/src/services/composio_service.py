@@ -70,27 +70,16 @@ class ComposioService:
     def _execute(self, action: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Execute a single Composio tool action."""
         if not self.composio:
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"exec_no_composio","timestamp":int(_t.time()*1000),"location":"composio_service.py:_execute","message":"Composio not initialized","data":{"action":action},"hypothesisId":"B2"})+"\n")
-            # #endregion
             return {"successful": False, "error": "Composio not initialized (missing API key)"}
         try:
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"exec_attempt","timestamp":int(_t.time()*1000),"location":"composio_service.py:_execute","message":"Executing Composio action","data":{"action":action,"user_id":self.user_id,"arg_keys":list(arguments.keys())},"hypothesisId":"B1"})+"\n")
-            # #endregion
             result = self.composio.tools.execute(
                 action,
                 user_id=self.user_id,
                 arguments=arguments,
+                dangerously_skip_version_check=True,
             )
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"exec_success","timestamp":int(_t.time()*1000),"location":"composio_service.py:_execute","message":"Composio action succeeded","data":{"action":action,"result_type":type(result).__name__,"result_keys":list(result.keys()) if isinstance(result,dict) else None},"hypothesisId":"B1"})+"\n")
-            # #endregion
             return result if isinstance(result, dict) else {"successful": True, "data": result}
         except Exception as exc:
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"exec_fail","timestamp":int(_t.time()*1000),"location":"composio_service.py:_execute","message":"Composio action FAILED","data":{"action":action,"error":str(exc),"error_type":type(exc).__name__},"hypothesisId":"B1"})+"\n")
-            # #endregion
             logger.exception("Composio execute failed: %s", action)
             return {"successful": False, "error": str(exc)}
 
@@ -260,27 +249,19 @@ class ComposioService:
             return {"successful": False, "error": f"Unknown toolkit: {toolkit}. Valid: {list(TOOLKIT_AUTH_CONFIG.keys())}"}
 
         try:
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"oauth_initiate","timestamp":int(_t.time()*1000),"location":"composio_service.py:initiate_connection","message":"Initiating OAuth","data":{"toolkit":toolkit,"callback_url":callback_url,"auth_config_id":auth_config_id,"user_id":self.user_id},"hypothesisId":"A1,A2,A3,A4"})+"\n")
-            # #endregion
             req = self.composio.connected_accounts.initiate(
                 user_id=self.user_id,
                 auth_config_id=auth_config_id,
                 config={"auth_scheme": "OAUTH2"},
                 callback_url=callback_url,
+                allow_multiple=True,
             )
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"oauth_initiate_ok","timestamp":int(_t.time()*1000),"location":"composio_service.py:initiate_connection","message":"OAuth initiate succeeded","data":{"toolkit":toolkit,"redirect_url":getattr(req,"redirect_url","?"),"request_id":getattr(req,"id","?"),"req_attrs":[a for a in dir(req) if not a.startswith("_")]},"hypothesisId":"A1,A4"})+"\n")
-            # #endregion
             return {
                 "successful": True,
                 "redirect_url": req.redirect_url,
                 "request_id": req.id,
             }
         except Exception as exc:
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"oauth_initiate_fail","timestamp":int(_t.time()*1000),"location":"composio_service.py:initiate_connection","message":"OAuth initiate FAILED","data":{"toolkit":toolkit,"error":str(exc),"error_type":type(exc).__name__},"hypothesisId":"A3"})+"\n")
-            # #endregion
             logger.exception("OAuth initiation failed for %s", toolkit)
             return {"successful": False, "error": str(exc)}
 
@@ -290,16 +271,10 @@ class ComposioService:
             return {"connections": [], "error": "Composio not initialized"}
 
         try:
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"check_conn","timestamp":int(_t.time()*1000),"location":"composio_service.py:check_connections","message":"Checking connections","data":{"user_id":self.user_id},"hypothesisId":"A2"})+"\n")
-            # #endregion
             response = self.composio.connected_accounts.list(
                 user_ids=[self.user_id],
                 statuses=["ACTIVE"],
             )
-            # SDK v1.0.0-rc2 returns a paginated response that iterates as
-            # key-value tuples: ('items', [...]), ('next_cursor', ...), etc.
-            # Extract the actual Item list from the 'items' field.
             items = []
             if hasattr(response, "items"):
                 items = response.items
@@ -313,21 +288,28 @@ class ComposioService:
                 toolkit_slug = ""
                 if hasattr(acct, "toolkit") and hasattr(acct.toolkit, "slug"):
                     toolkit_slug = acct.toolkit.slug
+                created = str(getattr(acct, "created_at", ""))
                 connections.append({
                     "id": getattr(acct, "id", ""),
                     "app": toolkit_slug,
                     "status": getattr(acct, "status", "UNKNOWN"),
+                    "created_at": created,
                 })
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"check_conn_result","timestamp":int(_t.time()*1000),"location":"composio_service.py:check_connections","message":"Connections result","data":{"count":len(connections),"connections":connections},"hypothesisId":"A2"})+"\n")
-            # #endregion
             return {"successful": True, "connections": connections}
         except Exception as exc:
-            # #region agent log
-            import json as _j, time as _t; open("/Users/tarive/treehacks/rewind/.cursor/debug.log","a").write(_j.dumps({"id":"check_conn_fail","timestamp":int(_t.time()*1000),"location":"composio_service.py:check_connections","message":"Connection check FAILED","data":{"error":str(exc),"error_type":type(exc).__name__},"hypothesisId":"A2"})+"\n")
-            # #endregion
             logger.exception("Connection status check failed")
             return {"successful": False, "connections": [], "error": str(exc)}
+
+    def disconnect_account(self, connection_id: str) -> dict[str, Any]:
+        """Delete a connected account by its ID."""
+        if not self.composio:
+            return {"successful": False, "error": "Composio not initialized"}
+        try:
+            self.composio.connected_accounts.delete(connection_id)
+            return {"successful": True}
+        except Exception as exc:
+            logger.exception("Failed to disconnect account %s", connection_id)
+            return {"successful": False, "error": str(exc)}
 
 
 # ── Singleton for shared use across server + agents ───────────────────────

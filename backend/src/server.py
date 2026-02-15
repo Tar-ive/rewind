@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import time
+from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -299,11 +300,13 @@ async def health():
 
 @app.get("/api/schedule")
 async def get_schedule():
-    """Get current active schedule."""
+    """Get current active schedule + backlog."""
     r = _get_redis()
     active = get_active_tasks(r)
+    backlog = get_backlog_tasks(r)
     return {
         "tasks": [_task_to_frontend(t) for t in active],
+        "backlog": [_task_to_frontend(t) for t in backlog],
         "energy": {"level": _energy_level, "confidence": 0.5, "source": "time_based"},
         "queue_counts": _sts.queue_counts(),
     }
@@ -619,6 +622,95 @@ async def start_task(task_id: str):
     return {"status": "in_progress", "task_id": task_id, "title": task.title}
 
 
+class CreateTaskRequest(BaseModel):
+    title: str
+    description: str = ""
+    priority: int = 2
+    energy_cost: int = 3
+    estimated_duration: int = 30
+    deadline: str = ""
+    preferred_start: str = ""
+    task_type: str = "general"
+    cognitive_load: int = 3
+
+
+@app.post("/api/tasks")
+async def create_task(req: CreateTaskRequest):
+    """Create a new task, store in Redis, enqueue in STS, and broadcast."""
+    r = _get_redis()
+    task_id = f"task-{uuid4().hex[:8]}"
+    task = Task(
+        task_id=task_id,
+        title=req.title,
+        description=req.description,
+        priority=req.priority,
+        energy_cost=req.energy_cost,
+        estimated_duration=req.estimated_duration,
+        deadline=req.deadline,
+        preferred_start=req.preferred_start,
+        task_type=req.task_type,
+        cognitive_load=req.cognitive_load,
+        status=TaskStatus.ACTIVE,
+    )
+    store_task(task, r)
+    _sts.enqueue(task)
+
+    frontend_task = _task_to_frontend(task)
+
+    active = get_active_tasks(r)
+    msg = _build_ws_message("updated_schedule", {
+        "tasks": [_task_to_frontend(t) for t in active],
+        "swaps": [],
+        "energy": {"level": _energy_level, "confidence": 0.5, "source": "time_based"},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    await manager.broadcast(msg)
+    await manager.broadcast_agent_activity(
+        "Scheduler Kernel", f"New task added: '{task.title}' (P{task.priority})", "info")
+
+    # Sync to Google Calendar
+    try:
+        svc = get_composio_service()
+        # Use preferred_start if set, otherwise use the computed start_time
+        cal_start = task.preferred_start or frontend_task["start_time"]
+        svc.create_event(
+            summary=task.title,
+            start_datetime=cal_start,
+            duration_minutes=task.estimated_duration,
+            description=task.description or "",
+        )
+        logger.info("Calendar event created for task %s at %s", task_id, cal_start)
+    except Exception as exc:
+        logger.warning("Calendar sync failed for task %s: %s", task_id, exc)
+
+    return {"successful": True, "task": frontend_task}
+
+
+@app.delete("/api/tasks/{task_id}")
+async def delete_task(task_id: str):
+    """Remove a task from the schedule entirely."""
+    r = _get_redis()
+    task = Task.from_redis(r, task_id)
+    if not task:
+        return {"error": "Task not found", "task_id": task_id}
+
+    Task.delete_from_redis(r, task_id)
+
+    # Rebuild STS from remaining active tasks
+    active = get_active_tasks(r)
+    _sts.reorder(active)
+
+    msg = _build_ws_message("updated_schedule", {
+        "tasks": [_task_to_frontend(t) for t in active],
+        "swaps": [],
+        "energy": {"level": _energy_level, "confidence": 0.5, "source": "time_based"},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    await manager.broadcast(msg)
+
+    return {"successful": True, "task_id": task_id}
+
+
 class SnoozeRequest(BaseModel):
     task_id: str = ""
     minutes: int = 15
@@ -680,6 +772,17 @@ async def auth_status():
     """Check which Composio toolkits have active OAuth connections."""
     svc = get_composio_service()
     return svc.check_connections()
+
+
+class AuthDisconnectRequest(BaseModel):
+    connection_id: str
+
+
+@app.post("/api/auth/disconnect")
+async def auth_disconnect(req: AuthDisconnectRequest):
+    """Disconnect (delete) a Composio connected account."""
+    svc = get_composio_service()
+    return svc.disconnect_account(req.connection_id)
 
 
 # ── Email Routes ─────────────────────────────────────────────────────────

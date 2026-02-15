@@ -49,6 +49,38 @@ export function useElevenLabsAgent(options: UseElevenLabsAgentOptions = {}) {
   // ── Client tool implementations ───────────────────────────────────────
 
   const clientTools = {
+    add_task: async (params: {
+      title: string;
+      description?: string;
+      priority?: number;
+      estimated_duration?: number;
+      energy_cost?: number;
+      deadline?: string;
+      preferred_start?: string;
+    }) => {
+      try {
+        const res = await fetch(`${API_URL}/api/tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: params.title,
+            description: params.description || "",
+            priority: params.priority ?? 2,
+            estimated_duration: params.estimated_duration ?? 30,
+            energy_cost: params.energy_cost ?? 3,
+            deadline: params.deadline || "",
+            preferred_start: params.preferred_start || "",
+          }),
+        });
+        const data = await res.json();
+        return data.successful
+          ? `Task "${params.title}" has been added to your schedule.`
+          : `Failed to add task: ${data.error || "unknown error"}`;
+      } catch {
+        return "Failed to add task — server may be unavailable.";
+      }
+    },
+
     plan_day: async (params: { available_hours?: number }) => {
       try {
         const res = await fetch(`${API_URL}/api/schedule/plan-day`, {
