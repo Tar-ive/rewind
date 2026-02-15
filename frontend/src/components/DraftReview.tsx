@@ -5,7 +5,13 @@ import { useState } from "react";
 export interface Draft {
   id: string;
   task_id: string;
-  task_type: "email_reply" | "slack_message" | "doc_update" | "meeting_reschedule";
+  task_type:
+    | "email_reply"
+    | "slack_message"
+    | "doc_update"
+    | "meeting_reschedule"
+    | "linkedin_post"
+    | "cancel_appointment";
   subject?: string;
   recipient?: string;
   channel?: string;
@@ -19,6 +25,8 @@ const TYPE_LABELS: Record<Draft["task_type"], { label: string; icon: string }> =
   slack_message: { label: "Slack Message", icon: "💬" },
   doc_update: { label: "Doc Update", icon: "📝" },
   meeting_reschedule: { label: "Meeting Reschedule", icon: "📅" },
+  linkedin_post: { label: "LinkedIn Post", icon: "💼" },
+  cancel_appointment: { label: "Cancellation", icon: "🚫" },
 };
 
 interface DraftReviewProps {

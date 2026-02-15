@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -30,9 +31,11 @@ from src.config.settings import (
     DISRUPTION_DETECTOR_SEED,
     SCHEDULER_KERNEL_SEED,
     ENERGY_MONITOR_SEED,
+    GHOST_WORKER_SEED,
     DISRUPTION_DETECTOR_ADDRESS,
     SCHEDULER_KERNEL_ADDRESS,
     ENERGY_MONITOR_ADDRESS,
+    GHOST_WORKER_ADDRESS,
     REDIS_URL,
     SENTINEL_POLL_INTERVAL,
     CALENDAR_LOOKAHEAD_HOURS,
@@ -67,6 +70,20 @@ from src.agents.protocols import create_chat_protocol
 
 logger = logging.getLogger(__name__)
 
+_deploy_mode = os.getenv("AGENT_DEPLOY_MODE", "local")
+_endpoint_base = os.getenv("AGENT_ENDPOINT_BASE", "http://localhost")
+
+
+def _agent_kwargs(port: int) -> dict:
+    """Build common Agent constructor kwargs based on deploy mode."""
+    kwargs: Dict[str, Any] = {}
+    if _deploy_mode == "agentverse":
+        kwargs["endpoint"] = []
+        kwargs["mailbox"] = True
+    else:
+        kwargs["endpoint"] = [f"{_endpoint_base}:{port}/submit"]
+    return kwargs
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Context Sentinel Factory
@@ -84,7 +101,7 @@ def create_context_sentinel(port: int = 8004) -> Agent:
         name="context_sentinel",
         seed=CONTEXT_SENTINEL_SEED,
         port=port,
-        endpoint=[f"http://localhost:{port}/submit"],
+        **_agent_kwargs(port),
     )
 
     # Lazy-initialized dependencies
@@ -184,7 +201,7 @@ def create_disruption_detector(port: int = 8001) -> Agent:
         name="disruption_detector",
         seed=DISRUPTION_DETECTOR_SEED,
         port=port,
-        endpoint=[f"http://localhost:{port}/submit"],
+        **_agent_kwargs(port),
     )
 
     _cached_profile: Dict[str, Any] = dict(DEFAULT_PROFILE)
@@ -256,7 +273,7 @@ def create_scheduler_kernel(port: int = 8002) -> Agent:
         name="scheduler_kernel",
         seed=SCHEDULER_KERNEL_SEED,
         port=port,
-        endpoint=[f"http://localhost:{port}/submit"],
+        **_agent_kwargs(port),
     )
 
     DEFAULT_ENERGY = EnergyLevel(level=3, confidence=0.5, source="time_based")
@@ -343,6 +360,11 @@ def create_scheduler_kernel(port: int = 8002) -> Agent:
                 r = _get_redis_client()
                 for task in delegated:
                     store_task(task, r)
+                # Send delegated tasks to GhostWorker
+                if GHOST_WORKER_ADDRESS:
+                    from src.agents.scheduler_kernel import _build_delegation_tasks
+                    for d in _build_delegation_tasks(delegated):
+                        await ctx.send(GHOST_WORKER_ADDRESS, d)
 
     @agent.on_message(ScheduleRequest)
     async def handle_schedule_request(ctx: Context, sender: str, req: ScheduleRequest):
@@ -394,7 +416,7 @@ def create_energy_monitor(port: int = 8003) -> Agent:
         name="energy_monitor",
         seed=ENERGY_MONITOR_SEED,
         port=port,
-        endpoint=[f"http://localhost:{port}/submit"],
+        **_agent_kwargs(port),
     )
 
     DEFAULT_ENERGY_CURVE = [
@@ -500,6 +522,196 @@ def create_energy_monitor(port: int = 8003) -> Agent:
     chat_proto = create_chat_protocol(
         "Energy Monitor",
         "Infers your energy level from behavioral signals and time-of-day patterns",
+        _chat_handler,
+    )
+    agent.include(chat_proto, publish_manifest=True)
+
+    return agent
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GhostWorker Factory
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def create_ghost_worker(port: int = 8005) -> Agent:
+    """Create and configure the GhostWorker agent.
+
+    Receives DelegationTask messages from the Scheduler Kernel, generates
+    drafts via Composio MCP, stores them for user approval, and executes
+    approved actions. Fully autonomous — deployable to Agentverse.
+    """
+    import uuid as _uuid
+
+    from src.agents.ghost_worker import (
+        TASK_PROMPTS,
+        TASK_SYSTEM_PROMPTS,
+        TASK_COSTS,
+        APPROVAL_POLL_INTERVAL,
+        _build_prompt,
+        _store_draft,
+        _execute_draft,
+    )
+
+    agent = Agent(
+        name="ghost_worker",
+        seed=GHOST_WORKER_SEED,
+        port=port,
+        **_agent_kwargs(port),
+    )
+
+    _state: Dict[str, Any] = {
+        "redis": None,
+        "orchestrator": None,
+        "pubsub": None,
+    }
+
+    def _get_redis_client() -> redis.Redis:
+        if _state["redis"] is None:
+            _state["redis"] = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+        return _state["redis"]
+
+    def _get_orchestrator():
+        if _state["orchestrator"] is None:
+            from src.composio.main import ComposioMCPOrchestrator
+            _state["orchestrator"] = ComposioMCPOrchestrator(
+                api_key=COMPOSIO_API_KEY,
+                user_id=COMPOSIO_USER_ID,
+            )
+            _state["orchestrator"].initialize_session()
+            logger.info("Composio MCP session initialized for GhostWorker")
+        return _state["orchestrator"]
+
+    def _get_approval_pubsub() -> redis.client.PubSub:
+        if _state["pubsub"] is None:
+            r = _get_redis_client()
+            _state["pubsub"] = r.pubsub(ignore_subscribe_messages=True)
+            _state["pubsub"].subscribe("ghostworker:approvals")
+        return _state["pubsub"]
+
+    @agent.on_event("startup")
+    async def on_startup(ctx: Context):
+        logger.info("GhostWorker started. Address: %s", agent.address)
+        try:
+            _get_orchestrator()
+        except Exception as exc:
+            logger.warning("Composio init deferred: %s", exc)
+        _get_approval_pubsub()
+        r = _get_redis_client()
+        pending = r.scard("ghostworker:pending")
+        if pending:
+            logger.info("%d pending drafts awaiting approval", pending)
+
+    @agent.on_message(DelegationTask)
+    async def handle_delegation(ctx: Context, sender: str, task: DelegationTask):
+        logger.info(
+            "DelegationTask received: task_id=%s, type=%s, approval=%s",
+            task.task_id, task.task_type, task.approval_required,
+        )
+
+        prompt = _build_prompt(task.task_type, task.context)
+        system_prompt = TASK_SYSTEM_PROMPTS.get(
+            task.task_type,
+            "You are a task execution assistant. Complete the requested action.",
+        )
+
+        try:
+            orchestrator = _get_orchestrator()
+            responses = await orchestrator.execute_operation(
+                prompt, system_context=system_prompt, max_iterations=5,
+            )
+            draft_body = "\n".join(responses) if responses else "(No content generated)"
+        except Exception as exc:
+            logger.error("Composio draft generation failed: %s", exc)
+            draft_body = f"(Draft generation failed: {exc})"
+
+        draft_id = f"draft-{_uuid.uuid4().hex[:8]}"
+        cost = min(TASK_COSTS.get(task.task_type, 0.001), task.max_cost_fet)
+
+        if not task.approval_required:
+            result = await _execute_draft(draft_id, body_override=draft_body)
+            completion = TaskCompletion(
+                task_id=task.task_id,
+                status=result.get("status", "failed"),
+                result=result,
+                cost_fet=cost,
+            )
+            if SCHEDULER_KERNEL_ADDRESS:
+                await ctx.send(SCHEDULER_KERNEL_ADDRESS, completion)
+            return
+
+        draft = _store_draft(draft_id, task, draft_body, cost)
+        r = _get_redis_client()
+        r.hset(f"ghostworker:draft:{draft_id}", "sender_address", sender)
+        logger.info("Draft %s awaiting user approval", draft_id)
+
+    @agent.on_interval(period=APPROVAL_POLL_INTERVAL)
+    async def poll_approvals(ctx: Context):
+        pubsub = _get_approval_pubsub()
+        while True:
+            msg = pubsub.get_message()
+            if msg is None:
+                break
+            if msg["type"] != "message":
+                continue
+            try:
+                data = json.loads(msg["data"])
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            action = data.get("action")
+            draft_id = data.get("draft_id")
+            if not draft_id:
+                continue
+
+            r = _get_redis_client()
+            draft_data = r.hgetall(f"ghostworker:draft:{draft_id}")
+            if not draft_data:
+                continue
+
+            task_id = draft_data.get("task_id", "")
+            cost_fet = float(draft_data.get("cost_fet", 0.001))
+            sender_address = draft_data.get("sender_address", SCHEDULER_KERNEL_ADDRESS)
+
+            if action == "approve":
+                edited_body = data.get("edited_body")
+                result = await _execute_draft(draft_id, body_override=edited_body)
+                completion = TaskCompletion(
+                    task_id=task_id,
+                    status=result.get("status", "failed"),
+                    result=result,
+                    cost_fet=cost_fet,
+                )
+                if sender_address:
+                    await ctx.send(sender_address, completion)
+
+            elif action == "reject":
+                r.hset(f"ghostworker:draft:{draft_id}", "status", "rejected")
+                r.srem("ghostworker:pending", draft_id)
+                event = {"event": "draft_rejected", "draft_id": draft_id, "task_id": task_id}
+                r.publish("ghostworker:events", json.dumps(event))
+                completion = TaskCompletion(
+                    task_id=task_id,
+                    status="failed",
+                    result={"reason": "User rejected draft"},
+                    cost_fet=0.0,
+                )
+                if sender_address:
+                    await ctx.send(sender_address, completion)
+
+    async def _chat_handler(ctx: Context, sender: str, text: str) -> str:
+        r = _get_redis_client()
+        pending = r.scard("ghostworker:pending")
+        return (
+            f"I'm GhostWorker — I autonomously handle delegatable tasks like "
+            f"email replies, Slack messages, LinkedIn posts, and meeting scheduling. "
+            f"Currently {pending} draft(s) pending review."
+        )
+
+    chat_proto = create_chat_protocol(
+        "GhostWorker",
+        "Autonomously executes delegatable tasks like email replies, Slack messages, "
+        "LinkedIn posts, and meeting scheduling with user approval",
         _chat_handler,
     )
     agent.include(chat_proto, publish_manifest=True)

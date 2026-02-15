@@ -87,12 +87,15 @@ LAST_POLL_KEY = f"{SENTINEL_PREFIX}last_poll"
 # mailbox     True or a mailbox API key string (enables Agentverse connectivity)
 # test        Defaults to True for testnet; set False for mainnet
 
+_deploy_mode = os.getenv("AGENT_DEPLOY_MODE", "local")
+_endpoint_base = os.getenv("AGENT_ENDPOINT_BASE", "http://localhost")
+
 agent = Agent(
     name="context_sentinel",
     seed=CONTEXT_SENTINEL_SEED,
     port=8004,
-    endpoint=["http://localhost:8004/submit"],
-    # mailbox=True,  # Uncomment for Agentverse connectivity
+    endpoint=[f"{_endpoint_base}:8004/submit"] if _deploy_mode == "local" else [],
+    mailbox=True if _deploy_mode == "agentverse" else False,
 )
 
 # Redis client for state caching

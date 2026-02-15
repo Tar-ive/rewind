@@ -59,7 +59,9 @@ export type WSMessageType =
   | "swap_operation"
   | "energy_update"
   | "delegation_update"
-  | "ghost_worker_status";
+  | "ghost_worker_status"
+  | "ghostworker_draft"
+  | "agent_activity";
 
 export interface WSMessage {
   type: WSMessageType;

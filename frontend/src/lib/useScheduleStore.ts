@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import type { Draft } from "@/components/DraftReview";
 import type {
   Task,
   SwapOperation,
@@ -17,6 +18,7 @@ interface ScheduleState {
   swapDirections: Map<string, "in" | "out">;
   lastDisruption: DisruptionEvent | null;
   agentLog: AgentLogEntry[];
+  drafts: Draft[];
 }
 
 export interface AgentLogEntry {
@@ -35,6 +37,7 @@ export function useScheduleStore(initialTasks: Task[] = []) {
     swapDirections: new Map(),
     lastDisruption: null,
     agentLog: [],
+    drafts: [],
   });
 
   const addLogEntry = useCallback(
@@ -86,6 +89,24 @@ export function useScheduleStore(initialTasks: Task[] = []) {
     []
   );
 
+  const addDraft = useCallback((draft: Draft) => {
+    setState((prev) => ({
+      ...prev,
+      drafts: [...prev.drafts, draft],
+    }));
+  }, []);
+
+  const removeDraft = useCallback((draftId: string) => {
+    setState((prev) => ({
+      ...prev,
+      drafts: prev.drafts.filter((d) => d.id !== draftId),
+    }));
+  }, []);
+
+  const setDrafts = useCallback((drafts: Draft[]) => {
+    setState((prev) => ({ ...prev, drafts }));
+  }, []);
+
   const handleWSMessage = useCallback(
     (message: WSMessage) => {
       switch (message.type) {
@@ -128,22 +149,76 @@ export function useScheduleStore(initialTasks: Task[] = []) {
           );
           break;
         }
+        case "ghostworker_draft": {
+          const draftData = message.payload as {
+            id: string;
+            task_id: string;
+            task_type: string;
+            body: string;
+            recipient?: string;
+            channel?: string;
+            subject?: string;
+            cost_fet: number;
+            timestamp: string;
+          };
+          const draft: Draft = {
+            id: draftData.id,
+            task_id: draftData.task_id,
+            task_type: draftData.task_type as Draft["task_type"],
+            body: draftData.body,
+            recipient: draftData.recipient,
+            channel: draftData.channel,
+            subject: draftData.subject,
+            cost_fet: typeof draftData.cost_fet === "string"
+              ? parseFloat(draftData.cost_fet)
+              : draftData.cost_fet,
+            timestamp: draftData.timestamp,
+          };
+          addDraft(draft);
+          addLogEntry(
+            "GhostWorker",
+            `New draft: ${draft.task_type} — awaiting review`,
+            "ghostworker"
+          );
+          break;
+        }
         case "ghost_worker_status": {
-          const status = message.payload as { task_id: string; status: string; message: string };
+          const status = message.payload as {
+            task_id: string;
+            draft_id?: string;
+            status: string;
+            message: string;
+          };
+          // Remove draft from state on execution or rejection
+          if (status.draft_id && (status.status === "executed" || status.status === "rejected")) {
+            removeDraft(status.draft_id);
+          }
           addLogEntry("GhostWorker", status.message, "ghostworker");
+          break;
+        }
+        case "agent_activity": {
+          const activity = message.payload as {
+            agent: string;
+            message: string;
+            type: AgentLogEntry["type"];
+          };
+          addLogEntry(activity.agent, activity.message, activity.type);
           break;
         }
         default:
           break;
       }
     },
-    [applySwaps, addLogEntry, state.tasks]
+    [applySwaps, addLogEntry, addDraft, removeDraft, state.tasks]
   );
 
   return {
     ...state,
     handleWSMessage,
     addLogEntry,
+    addDraft,
+    removeDraft,
+    setDrafts,
     setTasks: (tasks: Task[]) => setState((prev) => ({ ...prev, tasks })),
   };
 }

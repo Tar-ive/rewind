@@ -1,38 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import AgentActivityLog from "@/components/AgentActivityLog";
 import DraftReview from "@/components/DraftReview";
 import type { Draft } from "@/components/DraftReview";
 import { useScheduleStore } from "@/lib/useScheduleStore";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { MOCK_TASKS } from "@/lib/mockData";
-import { WS_URL } from "@/lib/constants";
+import { WS_URL, API_URL } from "@/lib/constants";
 import { PRIORITY_CONFIG } from "@/lib/constants";
 import type { Task } from "@/types/schedule";
-
-// Mock draft for demo purposes (will come from WebSocket in production)
-const MOCK_DRAFTS: Draft[] = [
-  {
-    id: "draft-1",
-    task_id: "task-6",
-    task_type: "email_reply",
-    recipient: "prof.martinez@stanford.edu",
-    subject: "RE: Research Assistant Position",
-    body: "Dear Professor Martinez,\n\nThank you for reaching out about the research assistant position. I'm very interested and would love to discuss further.\n\nI'm available this Thursday or Friday afternoon if you'd like to meet. Please let me know what works best for your schedule.\n\nBest regards,\nSarah",
-    cost_fet: 0.001,
-    timestamp: new Date().toISOString(),
-  },
-  {
-    id: "draft-2",
-    task_id: "task-7",
-    task_type: "slack_message",
-    channel: "cs229-study-group",
-    body: "Hey everyone! Heads up — I need to shift our study session tomorrow to 3pm instead of 2pm. Same room. Let me know if that works for you all!",
-    cost_fet: 0.001,
-    timestamp: new Date().toISOString(),
-  },
-];
 
 const SEVERITY_COLORS = {
   minor: "text-yellow-400",
@@ -42,48 +19,96 @@ const SEVERITY_COLORS = {
 
 export default function Home() {
   const store = useScheduleStore(MOCK_TASKS);
-  const [drafts, setDrafts] = useState<Draft[]>(MOCK_DRAFTS);
 
   const { status } = useWebSocket({
     url: WS_URL,
     onMessage: store.handleWSMessage,
   });
 
+  // Fetch existing pending drafts on mount
+  useEffect(() => {
+    async function fetchDrafts() {
+      try {
+        const res = await fetch(`${API_URL}/api/ghostworker/drafts`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.drafts && data.drafts.length > 0) {
+            const parsed: Draft[] = data.drafts.map((d: Record<string, string>) => ({
+              id: d.id,
+              task_id: d.task_id,
+              task_type: d.task_type as Draft["task_type"],
+              body: d.body,
+              recipient: d.recipient || undefined,
+              channel: d.channel || undefined,
+              subject: d.subject || undefined,
+              cost_fet: parseFloat(d.cost_fet) || 0.001,
+              timestamp: d.timestamp,
+            }));
+            store.setDrafts(parsed);
+          }
+        }
+      } catch {
+        // Server may not be running yet — drafts will arrive via WebSocket
+      }
+    }
+    fetchDrafts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleApproveDraft = useCallback(
-    (draftId: string) => {
-      const draft = drafts.find((d) => d.id === draftId);
+    async (draftId: string) => {
+      const draft = store.drafts.find((d) => d.id === draftId);
       if (draft) {
         store.addLogEntry(
           "GhostWorker",
-          `Approved & sending: ${draft.subject || draft.channel}`,
+          `Approved & sending: ${draft.subject || draft.channel || draft.task_type}`,
           "ghostworker"
         );
       }
-      setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+      // Relay approval to server → Redis → GhostWorker agent
+      try {
+        await fetch(`${API_URL}/api/ghostworker/drafts/${draftId}/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+      } catch {
+        store.addLogEntry("GhostWorker", "Failed to send approval", "ghostworker");
+      }
+      // Optimistically remove draft (will also be removed by WS event)
+      store.removeDraft(draftId);
     },
-    [drafts, store]
+    [store]
   );
 
   const handleEditDraft = useCallback(
-    (draftId: string, editedBody: string) => {
-      store.addLogEntry(
-        "GhostWorker",
-        `Draft edited & sent`,
-        "ghostworker"
-      );
-      setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+    async (draftId: string, editedBody: string) => {
+      store.addLogEntry("GhostWorker", "Draft edited & sent", "ghostworker");
+      try {
+        await fetch(`${API_URL}/api/ghostworker/drafts/${draftId}/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ edited_body: editedBody }),
+        });
+      } catch {
+        store.addLogEntry("GhostWorker", "Failed to send edited draft", "ghostworker");
+      }
+      store.removeDraft(draftId);
     },
     [store]
   );
 
   const handleRejectDraft = useCallback(
-    (draftId: string) => {
-      store.addLogEntry(
-        "GhostWorker",
-        `Draft rejected`,
-        "ghostworker"
-      );
-      setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+    async (draftId: string) => {
+      store.addLogEntry("GhostWorker", "Draft rejected", "ghostworker");
+      try {
+        await fetch(`${API_URL}/api/ghostworker/drafts/${draftId}/reject`, {
+          method: "POST",
+        });
+      } catch {
+        store.addLogEntry("GhostWorker", "Failed to send rejection", "ghostworker");
+      }
+      store.removeDraft(draftId);
     },
     [store]
   );
@@ -232,16 +257,16 @@ export default function Home() {
         {/* Right: Drafts + Agent Activity Log */}
         <div className="w-[420px] shrink-0 overflow-y-auto p-4 space-y-4">
           {/* Pending drafts */}
-          {drafts.length > 0 && (
+          {store.drafts.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold text-zinc-300 mb-3">
                 Pending Drafts
                 <span className="ml-2 text-[10px] font-normal text-cyan-500">
-                  {drafts.length} awaiting review
+                  {store.drafts.length} awaiting review
                 </span>
               </h2>
               <div className="space-y-3">
-                {drafts.map((draft) => (
+                {store.drafts.map((draft) => (
                   <DraftReview
                     key={draft.id}
                     draft={draft}

@@ -8,6 +8,7 @@ Energy Monitor, and emits UpdatedSchedule + DelegationTask messages.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 
 import redis
@@ -16,6 +17,7 @@ from uagents import Agent, Context
 from src.config.settings import (
     SCHEDULER_KERNEL_SEED,
     ENERGY_MONITOR_ADDRESS,
+    GHOST_WORKER_ADDRESS,
     REDIS_URL,
 )
 from src.models.messages import (
@@ -45,11 +47,15 @@ DEFAULT_ESTIMATION_BIAS = 1.0
 
 # ── Agent Setup ──────────────────────────────────────────────────────────
 
+_deploy_mode = os.getenv("AGENT_DEPLOY_MODE", "local")
+_endpoint_base = os.getenv("AGENT_ENDPOINT_BASE", "http://localhost")
+
 agent = Agent(
     name="scheduler_kernel",
     seed=SCHEDULER_KERNEL_SEED,
     port=8002,
-    endpoint=["http://localhost:8002/submit"],
+    endpoint=[f"{_endpoint_base}:8002/submit"] if _deploy_mode == "local" else [],
+    mailbox=True if _deploy_mode == "agentverse" else False,
 )
 
 # Shared state
@@ -149,13 +155,14 @@ async def handle_disruption_event(ctx: Context, sender: str, event: DisruptionEv
         )
         logger.info(f"MTS result: {result.summary}")
 
-        # Handle delegations
+        # Handle delegations — send to GhostWorker agent
         delegated = result.delegated + _sts.get_delegation_queue()
         if delegated:
             delegation_msgs = _build_delegation_tasks(delegated)
             for d in delegation_msgs:
                 logger.info(f"Delegating task {d.task_id} to GhostWorker")
-                # In production: await ctx.send(GHOSTWORKER_ADDRESS, d)
+                if GHOST_WORKER_ADDRESS:
+                    await ctx.send(GHOST_WORKER_ADDRESS, d)
 
     # STS reorder with current energy
     active = get_active_tasks(r)

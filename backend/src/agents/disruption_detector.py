@@ -11,6 +11,7 @@ Falls back to defaults if Profiler is unavailable.
 from __future__ import annotations
 
 import logging
+import os
 
 from uagents import Agent, Context
 
@@ -35,11 +36,15 @@ logger = logging.getLogger(__name__)
 
 # ── Agent Setup ──────────────────────────────────────────────────────────
 
+_deploy_mode = os.getenv("AGENT_DEPLOY_MODE", "local")
+_endpoint_base = os.getenv("AGENT_ENDPOINT_BASE", "http://localhost")
+
 agent = Agent(
     name="disruption_detector",
     seed=DISRUPTION_DETECTOR_SEED,
     port=8001,
-    endpoint=["http://localhost:8001/submit"],
+    endpoint=[f"{_endpoint_base}:8001/submit"] if _deploy_mode == "local" else [],
+    mailbox=True if _deploy_mode == "agentverse" else False,
 )
 
 # Store profile (updated when Profiler responds)

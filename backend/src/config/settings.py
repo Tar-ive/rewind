@@ -46,12 +46,16 @@ SCHEDULER_KERNEL_SEED: str = os.getenv(
 ENERGY_MONITOR_SEED: str = os.getenv(
     "ENERGY_MONITOR_SEED", "rewind-energy-monitor-seed-v1"
 )
+GHOST_WORKER_SEED: str = os.getenv(
+    "GHOST_WORKER_SEED", "rewind-ghost-worker-seed-v1"
+)
 
 # Agent addresses (auto-generated from seeds, override for production)
 DISRUPTION_DETECTOR_ADDRESS: str = os.getenv("DISRUPTION_DETECTOR_ADDRESS", "")
 SCHEDULER_KERNEL_ADDRESS: str = os.getenv("SCHEDULER_KERNEL_ADDRESS", "")
 PROFILER_AGENT_ADDRESS: str = os.getenv("PROFILER_AGENT_ADDRESS", "")
 ENERGY_MONITOR_ADDRESS: str = os.getenv("ENERGY_MONITOR_ADDRESS", "")
+GHOST_WORKER_ADDRESS: str = os.getenv("GHOST_WORKER_ADDRESS", "")
 
 # Scheduling engine defaults
 TASK_BUCKET_COUNT: int = int(os.getenv("TASK_BUCKET_COUNT", "16"))
@@ -67,12 +71,20 @@ COMPOSIO_USER_ID: str = os.getenv("USER_ID", "rewind-user-001")
 GOOGLE_CALENDAR_AUTH_CONFIG_ID: str = os.getenv("GOOGLE_CALENDAR_AUTH_CONFIG_ID", "")
 GMAIL_AUTH_CONFIG_ID: str = os.getenv("GMAIL_AUTH_CONFIG_ID", "")
 SLACK_AUTH_CONFIG_ID: str = os.getenv("SLACK_AUTH_CONFIG_ID", "")
+LINKEDIN_AUTH_CONFIG_ID: str = os.getenv("LINKEDIN_AUTH_CONFIG_ID", "")
 
 # ── Context Sentinel Polling ────────────────────────────────────────────
 
 SENTINEL_POLL_INTERVAL: int = int(os.getenv("SENTINEL_POLL_INTERVAL", "60"))
 CALENDAR_LOOKAHEAD_HOURS: int = int(os.getenv("CALENDAR_LOOKAHEAD_HOURS", "24"))
 GMAIL_LOOKBACK_HOURS: int = int(os.getenv("GMAIL_LOOKBACK_HOURS", "2"))
+
+# ── Agent Deployment ─────────────────────────────────────────────────────
+
+# Set to "agentverse" to deploy on Agentverse (uses mailbox, no local endpoint).
+# Set to "local" (default) for local dev with localhost endpoints.
+AGENT_DEPLOY_MODE: str = os.getenv("AGENT_DEPLOY_MODE", "local")
+AGENT_ENDPOINT_BASE: str = os.getenv("AGENT_ENDPOINT_BASE", "http://localhost")
 
 # ── Server Configuration ─────────────────────────────────────────────────
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from datetime import datetime, timezone
 
@@ -68,11 +69,15 @@ RECOMPUTE_INTERVAL_SECONDS = 5 * 60
 
 # ── Agent Setup ──────────────────────────────────────────────────────────
 
+_deploy_mode = os.getenv("AGENT_DEPLOY_MODE", "local")
+_endpoint_base = os.getenv("AGENT_ENDPOINT_BASE", "http://localhost")
+
 agent = Agent(
     name="energy_monitor",
     seed=ENERGY_MONITOR_SEED,
     port=8003,
-    endpoint=["http://localhost:8003/submit"],
+    endpoint=[f"{_endpoint_base}:8003/submit"] if _deploy_mode == "local" else [],
+    mailbox=True if _deploy_mode == "agentverse" else False,
 )
 
 # Cached energy curve (overridden when Profiler sends UserProfile)

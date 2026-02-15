@@ -497,6 +497,168 @@ async def get_backlog():
     return {"tasks": [_task_to_frontend(t) for t in backlog]}
 
 
+# ── GhostWorker Relay ───────────────────────────────────────────────────
+# The server relays GhostWorker events between Redis pub/sub and WebSocket.
+# It contains NO GhostWorker business logic — the agent is fully autonomous.
+
+_ghostworker_listener_task: Optional[asyncio.Task] = None
+
+
+async def _ghostworker_event_listener():
+    """Background task: subscribe to ghostworker:events and relay to WebSocket.
+
+    The GhostWorker agent publishes events (draft_created, draft_executed,
+    draft_rejected) to the ghostworker:events Redis channel. This listener
+    relays them to all connected WebSocket clients.
+    """
+    r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+    pubsub = r.pubsub(ignore_subscribe_messages=True)
+    pubsub.subscribe("ghostworker:events")
+    logger.info("GhostWorker event listener started")
+
+    try:
+        while True:
+            msg = pubsub.get_message(timeout=1.0)
+            if msg is None:
+                await asyncio.sleep(0.5)
+                continue
+            if msg["type"] != "message":
+                continue
+
+            try:
+                data = json.loads(msg["data"])
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            event_type = data.get("event", "")
+
+            if event_type == "draft_created":
+                # Relay new draft to frontend
+                ws_msg = _build_ws_message("ghostworker_draft", data.get("draft", {}))
+                await manager.broadcast(ws_msg)
+                await manager.broadcast_agent_activity(
+                    "GhostWorker",
+                    f"Draft created for task {data.get('draft', {}).get('task_type', 'unknown')}",
+                    "ghostworker",
+                )
+
+            elif event_type == "draft_executed":
+                ws_msg = _build_ws_message("ghost_worker_status", {
+                    "task_id": data.get("task_id", ""),
+                    "draft_id": data.get("draft_id", ""),
+                    "status": "executed",
+                    "message": f"Task {data.get('task_id', '')} executed successfully",
+                })
+                await manager.broadcast(ws_msg)
+                await manager.broadcast_agent_activity(
+                    "GhostWorker",
+                    f"Task {data.get('task_id', '')} executed via Composio",
+                    "ghostworker",
+                )
+
+            elif event_type == "draft_rejected":
+                ws_msg = _build_ws_message("ghost_worker_status", {
+                    "task_id": data.get("task_id", ""),
+                    "draft_id": data.get("draft_id", ""),
+                    "status": "rejected",
+                    "message": f"Draft for task {data.get('task_id', '')} rejected",
+                })
+                await manager.broadcast(ws_msg)
+
+            elif event_type == "draft_failed":
+                ws_msg = _build_ws_message("ghost_worker_status", {
+                    "task_id": data.get("task_id", ""),
+                    "draft_id": data.get("draft_id", ""),
+                    "status": "failed",
+                    "message": f"Task {data.get('task_id', '')} execution failed",
+                })
+                await manager.broadcast(ws_msg)
+
+    except asyncio.CancelledError:
+        pubsub.unsubscribe("ghostworker:events")
+        pubsub.close()
+    except Exception as exc:
+        logger.error("GhostWorker event listener error: %s", exc)
+
+
+@app.on_event("startup")
+async def start_ghostworker_listener():
+    """Start the GhostWorker event relay on server startup."""
+    global _ghostworker_listener_task
+    _ghostworker_listener_task = asyncio.create_task(_ghostworker_event_listener())
+
+
+@app.on_event("shutdown")
+async def stop_ghostworker_listener():
+    """Stop the GhostWorker event relay on server shutdown."""
+    if _ghostworker_listener_task and not _ghostworker_listener_task.done():
+        _ghostworker_listener_task.cancel()
+        try:
+            await _ghostworker_listener_task
+        except asyncio.CancelledError:
+            pass
+
+
+@app.get("/api/ghostworker/drafts")
+async def get_ghostworker_drafts():
+    """Read pending drafts from Redis.
+
+    Pure relay — reads what the GhostWorker agent stored.
+    """
+    r = _get_redis()
+    pending_ids = r.smembers("ghostworker:pending")
+    drafts = []
+    for draft_id in pending_ids:
+        draft_data = r.hgetall(f"ghostworker:draft:{draft_id}")
+        if draft_data:
+            drafts.append(draft_data)
+    return {"drafts": drafts}
+
+
+class DraftApprovalRequest(BaseModel):
+    edited_body: Optional[str] = None
+
+
+@app.post("/api/ghostworker/drafts/{draft_id}/approve")
+async def approve_draft(draft_id: str, req: DraftApprovalRequest = None):
+    """Approve a draft — publishes to Redis for GhostWorker agent to execute.
+
+    Pure relay — the server does NOT execute the action.
+    """
+    r = _get_redis()
+
+    # Verify draft exists
+    if not r.exists(f"ghostworker:draft:{draft_id}"):
+        return {"error": "Draft not found"}, 404
+
+    approval = {"action": "approve", "draft_id": draft_id}
+    if req and req.edited_body:
+        approval["edited_body"] = req.edited_body
+
+    r.publish("ghostworker:approvals", json.dumps(approval))
+    logger.info("Approval published for draft %s", draft_id)
+
+    return {"status": "approval_sent", "draft_id": draft_id}
+
+
+@app.post("/api/ghostworker/drafts/{draft_id}/reject")
+async def reject_draft(draft_id: str):
+    """Reject a draft — publishes to Redis for GhostWorker agent to handle.
+
+    Pure relay — the server does NOT modify draft state.
+    """
+    r = _get_redis()
+
+    if not r.exists(f"ghostworker:draft:{draft_id}"):
+        return {"error": "Draft not found"}, 404
+
+    rejection = {"action": "reject", "draft_id": draft_id}
+    r.publish("ghostworker:approvals", json.dumps(rejection))
+    logger.info("Rejection published for draft %s", draft_id)
+
+    return {"status": "rejection_sent", "draft_id": draft_id}
+
+
 if __name__ == "__main__":
     import uvicorn
     logging.basicConfig(level=logging.INFO)
