@@ -30,3 +30,23 @@ CERTS_FILE: str = "Certifications.csv"
 # RedisVL index names
 EXPLICIT_INDEX: str = "explicit_signals"
 IMPLICIT_INDEX: str = "implicit_signals"
+
+# ── Agent Configuration ──────────────────────────────────────────────────
+
+# Agent seed phrases (deterministic address generation)
+DISRUPTION_DETECTOR_SEED: str = os.getenv(
+    "DISRUPTION_DETECTOR_SEED", "rewind-disruption-detector-seed-v1"
+)
+SCHEDULER_KERNEL_SEED: str = os.getenv(
+    "SCHEDULER_KERNEL_SEED", "rewind-scheduler-kernel-seed-v1"
+)
+
+# Agent addresses (auto-generated from seeds, override for production)
+SCHEDULER_KERNEL_ADDRESS: str = os.getenv("SCHEDULER_KERNEL_ADDRESS", "")
+PROFILER_AGENT_ADDRESS: str = os.getenv("PROFILER_AGENT_ADDRESS", "")
+ENERGY_MONITOR_ADDRESS: str = os.getenv("ENERGY_MONITOR_ADDRESS", "")
+
+# Scheduling engine defaults
+TASK_BUCKET_COUNT: int = int(os.getenv("TASK_BUCKET_COUNT", "16"))
+DEFAULT_AVAILABLE_HOURS: int = int(os.getenv("DEFAULT_AVAILABLE_HOURS", "8"))
+DEFAULT_ENERGY_LEVEL: int = int(os.getenv("DEFAULT_ENERGY_LEVEL", "3"))
