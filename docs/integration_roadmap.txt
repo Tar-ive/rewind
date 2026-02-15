@@ -1,0 +1,262 @@
+================================================================================
+  REWIND PROJECT — INTEGRATION ROADMAP
+  uAgents + Agentverse + Claude Agent SDK
+================================================================================
+
+  Purpose:
+  This document outlines how to take the multi-agent Rewind project, turn each
+  piece into a Fetch/uAgents agent, register them in Agentverse, and expose
+  them behind Claude's Agent SDK for a polished end-user experience.
+
+  Status: Research / Planning Phase
+
+
+================================================================================
+  1. CURRENT PROJECT STATE (uAgents Side)
+================================================================================
+
+  The project is already structured as a multi-agent system on Fetch's uAgents
+  framework.
+
+  AGENTS (all Python / uAgents)
+  ─────────────────────────────
+  Agent 1 — context_sentinel.py    Monitors Calendar / Email / Slack
+  Agent 2 — profiler_agent.py      Learns behavioral profile
+  Agent 3 — disruption_detector.py Classifies disruptions
+  Agent 4 — scheduler_kernel.py    OS-style scheduling "brain"
+  Agent 5 — ghost_worker.py        Autonomous task executor (browser, etc.)
+  Agent 6 — energy_monitor.py      Infers energy level
+
+  PROTOCOLS LAYER
+  ───────────────
+  models.py            Pydantic models for all typed messages
+  rewind_protocol.py   ProtocolSpecification for inter-agent messages
+  chat_setup.py        Chat protocol wiring for ASI:One / end-user chat
+  payment_setup.py     Payment protocol for GhostWorker
+
+  ENGINE & BACKEND
+  ────────────────
+  engine/                  Scheduling, queues
+  backend/                 FastAPI + WebSocket for UI
+  scripts/register_agents.py   Register all 6 agents on Agentverse
+
+  REFERENCE PATTERN
+  ─────────────────
+  pattern-agent-with-mailbox.py shows the minimal uAgent with a mailbox
+  and a chat protocol — the template every agent should follow.
+
+
+================================================================================
+  2. FROM uAGENTS TO AGENTVERSE (Fetch Side)
+================================================================================
+
+  CONCEPTUAL MODEL
+  ────────────────
+  - Agentverse is the open directory / coordination layer where agents register
+    and become discoverable to other agents and user frontends like ASI:One.
+  - uAgents is how you implement the agent itself (logic, protocols, endpoints,
+    state).
+  - register_agents.py is intended to publish all six agents to Agentverse.
+  - The mailbox=True pattern lets agents receive messages even when not
+    directly addressable from the open internet.
+
+  PRACTICAL STEPS FOR EACH AGENT
+  ──────────────────────────────
+
+  Step A — Make each agent a uAgent instance with a mailbox and manifest.
+
+    Example pattern (from pattern-agent-with-mailbox.py):
+
+        from uagents import Agent, Context, Protocol
+        from uagents.contrib.protocols.chat import (
+            chat_protocol_spec, ChatMessage, ChatAcknowledgement
+        )
+
+        agent = Agent(
+            name="myagent",
+            port=8001,
+            seed="myseed",
+            mailbox=True,
+        )
+
+        chat_proto = Protocol(spec=chat_protocol_spec)
+
+        @chat_proto.on_message(ChatMessage)
+        async def handle(ctx: Context, sender: str, msg: ChatMessage):
+            # your logic here
+            ...
+
+        agent.include(chat_proto, publish_manifest=True)
+
+        if __name__ == "__main__":
+            agent.run()
+
+    For each of the six agents:
+      - Define the Agent
+      - Include the appropriate Protocol instances from rewind_protocol.py
+        and chat_setup.py
+      - Set publish_manifest=True so Agentverse can index them
+
+  Step B — Wire message models and protocols correctly.
+
+    - Use the Pydantic models in models.py to define payload schemas between
+      agents.
+    - rewind_protocol.py defines a ProtocolSpecification that all agents share,
+      enabling structured messages (DisruptionEvent, DelegationTask,
+      UpdatedSchedule, etc.).
+    - Message flow (from interaction-flow.txt):
+        Context Sentinel
+          -> Disruption Detector
+            -> Scheduler Kernel
+              -> Profiler / Energy Monitor
+                -> GhostWorker
+                  -> Frontend
+
+  Step C — Register agents in Agentverse.
+
+    - register_agents.py calls uAgents registration APIs to publish each
+      agent's manifest to the Agentverse directory.
+    - Once registered, each agent gets an address and metadata so other agents
+      and ASI:One can discover them.
+
+  Step D — Deployment.
+
+    - Run each uAgent on your own infra (Docker / VM / k8s) as long as they
+      can reach the Fetch network and expose their mailbox endpoints.
+    - quickstart.sh orchestrates local dev: start Redis, engine, agents,
+      backend, etc. Replicate this in a containerized deploy.
+
+  At this point, from Fetch's perspective, you have six agents registered in
+  Agentverse and running as uAgents, cooperating via rewind_protocol.
+
+
+================================================================================
+  3. WRAPPING WITH CLAUDE AGENT SDK
+================================================================================
+
+  GOAL
+  ────
+  Put a Claude Agent "on top" that can:
+    - Talk to the user in natural language (chat UI / API)
+    - Decide when to call which Rewind agent (kernel, ghostworker, etc.)
+    - Use tools that call into your uAgents / Agentverse endpoints
+
+  The Claude Agent SDK handles the reasoning loop, tool selection, and context
+  compaction.
+
+  BASIC PATTERN (TypeScript)
+  ──────────────────────────
+  Define tools that invoke your agents (via HTTP to FastAPI backend, or direct
+  uAgents HTTP endpoints / Agentverse API). Configure the Claude agent with
+  those tools. Run the agent loop — Claude decides when to call tools and when
+  to answer directly.
+
+  Example sketch:
+
+      import { createAgent, tool } from "@anthropic-ai/claude-agent-sdk";
+
+      const scheduleTask = tool({
+        name: "schedule_task",
+        description: "Schedule or update tasks in the Rewind scheduler kernel.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            task: { type: "string" },
+            when: { type: "string" },
+          },
+          required: ["task", "when"],
+        },
+        execute: async ({ task, when }) => {
+          const res = await fetch("https://your-backend/scheduler/schedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ task, when }),
+          });
+          return await res.json();
+        },
+      });
+
+      const agent = createAgent({
+        name: "RewindCoordinator",
+        tools: [scheduleTask],
+        // + more tools mapped to ghostworker, profiler, etc.
+      });
+
+  When the user says "Move my 3pm standup to tomorrow at 10am," Claude will
+  choose schedule_task with the right arguments, your tool hits your
+  backend/agent, and Claude turns the result into a natural-language reply.
+
+  HOW TO "WRAP" EXISTING AGENTS
+  ─────────────────────────────
+
+  Front door:
+    Use chat_setup.py's chat protocol to define a single "gateway" uAgent
+    (or FastAPI endpoint) that the Claude Agent tools hit.
+
+  Inside:
+    That gateway dispatches messages across rewind_protocol to
+    kernel / ghostworker / etc. using the Pydantic models.
+
+  Outside:
+    Claude SDK only sees simple HTTP tools like schedule_task, delegate_task,
+    get_energy_level, etc.
+
+  This layering keeps your Rewind multi-agent graph intact, while Claude is
+  just an orchestration UI layer on top.
+
+
+================================================================================
+  4. WHERE AGENTVERSE FITS IN THE PICTURE
+================================================================================
+
+  - ASI:One plays the "personal AI" that orchestrates multiple brand / function
+    agents (similar to the Claude coordinator, but specific to Fetch).
+  - Agentverse is the open directory that makes your agents discoverable and
+    interoperable.
+  - Rewind is effectively a domain-specific agent cluster registered into the
+    broader Agentverse.
+
+  You can:
+    1. Expose it via ASI:One — so a user's main agent can call your agents by
+       their Agentverse identity.
+    2. Expose it via your own Claude Agent SDK wrapper as described above.
+
+  Conceptually both paths are the same: one "front-door" agent (ASI:One or
+  Claude) orchestrates multiple specialized agents, many of which live in
+  Agentverse.
+
+
+================================================================================
+  5. SUGGESTED NEXT STEPS
+================================================================================
+
+  Priority  Task
+  ────────  ─────────────────────────────────────────────────────────────────
+
+  [1]       MAKE EACH AGENT INDEPENDENTLY RUNNABLE
+            - Check each agents/*.py file follows the pattern in
+              pattern-agent-with-mailbox.py
+            - Ensure publish_manifest=True and proper Protocol inclusion
+
+  [2]       VERIFY LOCAL INTERACTION FLOW
+            - Use run_all_agents.py (or similar) and demo_trigger.py to
+              confirm the pipeline in interaction-flow.txt executes end-to-end
+
+  [3]       BUILD A THIN HTTP "GATEWAY" SERVICE
+            - FastAPI routes for "schedule task," "delegate task," etc.
+            - Converts HTTP requests -> rewind_protocol messages -> uAgents
+
+  [4]       CREATE A CLAUDE AGENT SDK APP
+            - Define 3-5 tools that call the gateway
+            - Stand up a simple CLI or web UI using the SDK
+            - Start with one tool (e.g., schedule_task) and iterate
+
+  [5]       (OPTIONAL) INTEGRATE WITH ASI:ONE / AGENTVERSE UX
+            - Once agents are registered, claim them / surface them as brand
+              agents in Fetch's business portal
+            - They will then show up in ASI:One flows
+
+
+================================================================================
+  END OF DOCUMENT
+================================================================================
