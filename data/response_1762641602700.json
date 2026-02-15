@@ -1,0 +1,2269 @@
+{
+  "profiles": [
+    {
+      "id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "first_name": "Saksham",
+      "maiden_name": null,
+      "last_name": "Adhikari",
+      "occupation": "Data and AI Researcher| Undergraduate Research Assistant | prev TPU Student Researcher | Vice President of ACM AI @ TXST | 4x Hackathon Winner",
+      "public_identifier": "adhsaksham",
+      "follower_count": null,
+      "connection_count": null,
+      "picture": {
+        "id": "IMG_DamPRN8GF1RWLz7MavbySQtwT4xoGD",
+        "original_name": "1735551699802",
+        "format": "jpg",
+        "size_in_bytes": 66263,
+        "width": 800,
+        "height": 800
+      },
+      "background_image": {
+        "id": "IMG_ATyQUW6YK51RK72f4LRJ26N9Nhjar6",
+        "original_name": "1738288725420",
+        "format": "jpg",
+        "size_in_bytes": 69698,
+        "width": 1243,
+        "height": 310
+      }
+    }
+  ],
+  "companies": [],
+  "groups": [],
+  "nextPageOffset": null,
+  "items": [
+    {
+      "urn": "urn:li:share:7374730254151704576",
+      "text": "👀👀",
+      "text_attributes": [],
+      "content_type": "Reshare",
+      "hashtags": null,
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 0,
+        "rawLength": 4,
+        "sentences": 1,
+        "characters": 0,
+        "paragraphs": 1,
+        "readingTimeMs": 0,
+        "readabilityIndex": null
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 3,
+        "EMPATHY": 2
+      },
+      "reaction_count": 5,
+      "comment_count": 0,
+      "share_count": 0,
+      "impression_count": 578,
+      "engagement_rate": 0.8650519031141869,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-09-19T09:05:08.626Z",
+      "post_updated_at": "2025-09-19T09:05:08.626Z",
+      "post_published_at": "2025-09-19T09:05:08.626Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-09-19T09:05:08.626Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7368380924717170688",
+      "text": "Two months ago, I hit \"apply\" for Google's TPU Research Cloud. Heart racing. No real plan. Just a hunch this could spark something big.\n\n\"Trust the process,\" I whispered to myself.\n\nEverybody in the market kept hammering: \"Find product-market fit. Solve a real problem.\"\n\nI tried. Poked around ideas. Chased leads. But nothing clicked. Couldn't force it.\nSo I accepted it. Let go. Started hunting bigger: Problems plaguing humanity. Ones where throwing compute could yield massive energy gains.\n\nComplex optimizations. Boosting efficiency in fundamental infrastructure. Like the electric grid—our crumbling backbone.\n\nBlackouts in Spain. Congestion in California. Wasted renewables in India and Latin America. Ancient systems buckling under climate chaos, EVs, data centers, wild weather.\n\nThis felt right. Not just a gig—innovation and progress. Still in my phase of discovering what I truly love doing.\n\nDug into AI-native solutions. Think Google Maps for electricity. Real-time predictions. Smarter balancing. Disaster prevention.\n\nShoutout to Pravāh's founders Dhruv Suri, Mohak Mangal, and Aman Gupta. Pilots in three countries. $1M funding. Using transformers, GNNs, RL agents to unlock millions in value and speed clean energy.\n\nSpark ignited. Applied—and got in! 64 TPU v5e chips here, 64 v6e there, across zones. Compute jackpot.\n\nAiming it at Texas. ERCOT's chaos—Winter Storm Uri failures, booming renewables, population boom.\n\nSimulate probabilistic models. Train weather diffusion. Run RL for congestion games.\n\nPreempt blackouts? Integrate solar without waste? Build resilience? Massive energy wins.\n\nThings work out in wild ways. If you trust the process.\n\nNot \"The Summer I Turned Pretty\"... but \"The Summer I Trusted the Compute.\"\nPart 1 of grid-hacking adventures. More soon :) Sharing the implementation guide here for those who are interested. \nhttps://lnkd.in/grrUR3PR\n\nThoughts? Ideas on big compute-for-good problems, TPU hacks, or infrastructure optimizations? If you're chasing innovation too—let's chat!",
+      "text_attributes": [
+        {
+          "type": "PROFILE_MENTION",
+          "index": 0,
+          "start": 1065,
+          "length": 10,
+          "urnValue": "ACoAABpqPfQBiY4pywcgiF1-E-lhouXQGgW3mmw"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 2,
+          "start": 1077,
+          "length": 12,
+          "urnValue": "ACoAABAJ6FwBK3vftTo2JkuJ2aHSZlKFq5q6Nsc"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 4,
+          "start": 1865,
+          "length": 24,
+          "rawLink": "https://lnkd.in/grrUR3PR",
+          "linkType": "external",
+          "resolvedLink": "https://docs.google.com/document/d/1l5VUT7RPjgabqHVec9JCh9sFKYiN3WGL/edit?usp=sharing&amp;ouid=106977341893537547986&amp;rtpof=true&amp;sd=true"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": null,
+      "images": [
+        {
+          "id": "IMG_Ld22wH8dYthAcmdfK4oS9X5Gy7E8Lg",
+          "original_name": "1756758909236",
+          "format": "jpg",
+          "size_in_bytes": 90294,
+          "width": 2048,
+          "height": 770
+        },
+        {
+          "id": "IMG_Ax4niK4HRywB2oY5FTcTqXb9ZYecgt",
+          "original_name": "1756758908805",
+          "format": "jpg",
+          "size_in_bytes": 53457,
+          "width": 1502,
+          "height": 786
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 298,
+        "rawLength": 2029,
+        "sentences": 58,
+        "characters": 1631,
+        "paragraphs": 19,
+        "readingTimeMs": 71520,
+        "readabilityIndex": 6.917522564221244
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 32,
+        "PRAISE": 4,
+        "EMPATHY": 9,
+        "APPRECIATION": 1
+      },
+      "reaction_count": 46,
+      "comment_count": 3,
+      "share_count": 0,
+      "impression_count": 1726,
+      "engagement_rate": 2.8389339513325607,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-09-01T20:35:10.637Z",
+      "post_updated_at": "2025-09-01T20:35:10.637Z",
+      "post_published_at": "2025-09-01T20:35:10.637Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-09-01T20:35:10.637Z"
+    },
+    {
+      "urn": "urn:li:share:7362172668458029058",
+      "text": "\"How to Scale Your Model\" might be the best free resource if you want to work in the AI Scaling/ Hardware Industry. \n\nReleased by the authors of Google DeepMind, it covers the math, systems and scaling laws for LLM training and inference workloads.\n\nIt's approachable yet thorough, an absolute must-read. It has got me into understanding basic JAX concepts and code. \n\nFull book here: https://lnkd.in/g8-pxkuY",
+      "text_attributes": [
+        {
+          "type": "COMPANY_NAME",
+          "index": 0,
+          "start": 145,
+          "length": 15,
+          "urnValue": "1594050"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 2,
+          "start": 385,
+          "length": 24,
+          "rawLink": "https://lnkd.in/g8-pxkuY",
+          "linkType": "external",
+          "resolvedLink": "https://jax-ml.github.io/scaling-book/"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": null,
+      "images": [
+        {
+          "id": "IMG_XyKkfr3rwyKiBhvQvorR56XJJ59hY6",
+          "original_name": "1755278745752",
+          "format": "jpg",
+          "size_in_bytes": 243415,
+          "width": 2048,
+          "height": 1023
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 65,
+        "rawLength": 409,
+        "sentences": 5,
+        "characters": 334,
+        "paragraphs": 4,
+        "readingTimeMs": 15600,
+        "readabilityIndex": 9.272153846153849
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 15,
+        "EMPATHY": 2
+      },
+      "reaction_count": 17,
+      "comment_count": 4,
+      "share_count": 0,
+      "impression_count": 1434,
+      "engagement_rate": 1.4644351464435146,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-08-15T17:25:46.953Z",
+      "post_updated_at": "2025-08-15T17:25:46.953Z",
+      "post_published_at": "2025-08-15T17:25:46.953Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-08-15T17:25:46.953Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7361116156230844418",
+      "text": "This weekend, I developed QuantaFold, a tool designed to make amino acid sequence detection accessible to everyone. I fine-tuned a lightweight pLM (ESM-2 released by Meta AI labs) model to classify proteins into functional families.\n\nMy first model quickly achieved 97.9% accuracy on the 1,000 most common protein families. However, it struggled with rarer, out-of-distribution examples. To address this, I engineered a training pipeline, curating a 400k-sample dataset and implementing a weighted loss function to manage the severe class imbalance. The resulting model trained for 4+ hours achieved 60% accuracy on a much more difficult 5,000-class problem, demonstrating the viability of this advanced technique on real-world scientific data. \n\nThis project reaffirmed a key insight: the main bottleneck for many researchers and drug discovers isn't predicting perfect 3D structures, but rapidly getting a \"good enough\" functional clue to guide their work. Lightweight, function-focused models can solve this by providing instant, accessible insights.\nHere are the results:\nhttps://lnkd.in/gwRG779U\nhttps://lnkd.in/g8id5kiE\nhttps://lnkd.in/gtwvz3ge\nhttps://lnkd.in/gwnEAEgx",
+      "text_attributes": [
+        {
+          "type": "COMPANY_NAME",
+          "index": 0,
+          "start": 166,
+          "length": 4,
+          "urnValue": "10667"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 2,
+          "start": 1076,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gwRG779U",
+          "linkType": "external",
+          "resolvedLink": "https://consent.google.com/m?continue=https://gemini.google.com/share/9766706150de&gl=DE&m=0&pc=bard&cm=2&hl=en-US&src=1"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 3,
+          "start": 1101,
+          "length": 24,
+          "rawLink": "https://lnkd.in/g8id5kiE",
+          "linkType": "external",
+          "resolvedLink": "https://huggingface.co/spaces/Tarive/protein_fold_hack_nation_ai"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 4,
+          "start": 1126,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gtwvz3ge",
+          "linkType": "external",
+          "resolvedLink": "https://huggingface.co/Tarive/esm2_t12_35M_UR50D-finetuned-pfam-1k"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 5,
+          "start": 1151,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gwnEAEgx",
+          "linkType": "external",
+          "resolvedLink": "https://huggingface.co/datasets/Tarive/quantafold"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": null,
+      "images": [
+        {
+          "id": "IMG_P5sAzz4fANp6CBxNQyLv7SwgH9b3Ka",
+          "original_name": "1755026853093",
+          "format": "jpg",
+          "size_in_bytes": 156404,
+          "width": 1986,
+          "height": 1536
+        },
+        {
+          "id": "IMG_xuBcakMNr3aY6QSenmE5oxAoHhqqt2",
+          "original_name": "1755026853813",
+          "format": "jpg",
+          "size_in_bytes": 181325,
+          "width": 2048,
+          "height": 1087
+        },
+        {
+          "id": "IMG_Da9PrTboqgvs9Q1qVgAorLc1Gi3SAZ",
+          "original_name": "1755026852895",
+          "format": "jpg",
+          "size_in_bytes": 109993,
+          "width": 2048,
+          "height": 1097
+        },
+        {
+          "id": "IMG_YVpDpL9xzJYPsVr8WzXoT9KZ4TFeCB",
+          "original_name": "1755026854288",
+          "format": "jpg",
+          "size_in_bytes": 321291,
+          "width": 2048,
+          "height": 1339
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 162,
+        "rawLength": 1175,
+        "sentences": 13,
+        "characters": 1004,
+        "paragraphs": 8,
+        "readingTimeMs": 38880,
+        "readabilityIndex": 13.9911396011396
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 40,
+        "PRAISE": 9,
+        "EMPATHY": 4,
+        "INTEREST": 1
+      },
+      "reaction_count": 54,
+      "comment_count": 5,
+      "share_count": 1,
+      "impression_count": 1693,
+      "engagement_rate": 3.5440047253396343,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-08-12T19:27:35.113Z",
+      "post_updated_at": "2025-08-12T19:27:35.113Z",
+      "post_published_at": "2025-08-12T19:27:35.113Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-08-12T19:27:35.113Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7359711807483101184",
+      "text": "I fine-tuned a Gemma 1B model to help researchers improve their grant proposals. It rewrites rough drafts for clarity, impact, and adherence to specific NIH conventions.\n\nI built: \n- Custom Data Pipelines: Programmatically sourced 2,000+ funded abstracts from the NIH RePORTER API. \nSynthetic Data Generation: Used a multi-model LLM router and 4 distinct \"editor personas\" to create a dataset of 1,808 (unoptimized, optimized) training pairs. \nEfficient Fine-Tuning: Used LoRA (PEFT) with Keras 3 and the JAX backend to train on a single A100 GPU. \nLive & Interactive: Deployed a working Gradio demo on Hugging Face for anyone to use.\n\nCheck out the full technical write-up and the live model below!\nLive Demo: https://lnkd.in/gPZTBCuR\n\nA Note on Performance: The demo is running on free-tier CPU hardware, so inference can be slow (sometimes up to 3 minutes).",
+      "text_attributes": [
+        {
+          "type": "HYPERLINK",
+          "index": 0,
+          "start": 711,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gPZTBCuR",
+          "linkType": "external",
+          "resolvedLink": "https://huggingface.co/spaces/Tarive/lora_finetuned_research_abstracts"
+        }
+      ],
+      "content_type": "Article",
+      "hashtags": null,
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 136,
+        "rawLength": 860,
+        "sentences": 10,
+        "characters": 693,
+        "paragraphs": 9,
+        "readingTimeMs": 32640.000000000004,
+        "readabilityIndex": 9.370220588235295
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 22,
+        "PRAISE": 2,
+        "EMPATHY": 3
+      },
+      "reaction_count": 27,
+      "comment_count": 4,
+      "share_count": 0,
+      "impression_count": 1228,
+      "engagement_rate": 2.5244299674267103,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-08-08T22:27:11.908Z",
+      "post_updated_at": "2025-08-08T22:27:11.908Z",
+      "post_published_at": "2025-08-08T22:27:11.908Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-08-08T22:27:11.908Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7353471671548231680",
+      "text": "I spent a week in SF and it was insanely rewarding. Got to attend the biggest Gen AI summit of 2025, thanks to Melinda Villagran, PhD, also got to attend an amazing AI event at Snowflake HQ, got to visit the Salesforce tower thanks to Devansh Sharma and attend Replit x Apple's engineering day which was great. \n\nA big thanks to Akshay Shah, for inspiring me to always keep learning and growing in AI, to Anusha Dudi for the insightful talk and breaking down a career in AI for me, Jensen Coonradt for being the absolute greatest programming mind ever, and also David Ongchoco for the connections in the Comma event.",
+      "text_attributes": [
+        {
+          "type": "PROFILE_MENTION",
+          "index": 0,
+          "start": 111,
+          "length": 22,
+          "urnValue": "ACoAAAEiKscBvadqIbLAj0HU8yMNYle7lPaW-Yg"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 2,
+          "start": 177,
+          "length": 9,
+          "urnValue": "3653845"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 4,
+          "start": 208,
+          "length": 10,
+          "urnValue": "3185"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 6,
+          "start": 235,
+          "length": 14,
+          "urnValue": "ACoAAB7r5wwB0s8gN2ld1eu2Xo7lkezr44rsiiM"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 8,
+          "start": 261,
+          "length": 6,
+          "urnValue": "18542592"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 10,
+          "start": 270,
+          "length": 5,
+          "urnValue": "162479"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 12,
+          "start": 329,
+          "length": 11,
+          "urnValue": "ACoAAAx7zFwBMf25amTgR21P6MzkSoGp65I1nAE"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 14,
+          "start": 405,
+          "length": 11,
+          "urnValue": "ACoAAARe_lIBoTry8ZBvx_GejHGDL7XPEGXoGso"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 16,
+          "start": 482,
+          "length": 15,
+          "urnValue": "ACoAAD0jK1UBIwPpfyVXANGjD6gA171xuLSi88k"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 18,
+          "start": 562,
+          "length": 14,
+          "urnValue": "ACoAABDwC7wBMAXmYKM8V1lW29MzzLnYgHuKuPo"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": null,
+      "images": [
+        {
+          "id": "IMG_PrwTfMLVCBxjw3zfWYrjGpTqYPZrkK",
+          "original_name": "1753204263597",
+          "format": "jpg",
+          "size_in_bytes": 466355,
+          "width": 2048,
+          "height": 1536
+        },
+        {
+          "id": "IMG_WNXNW671B5SXPZ45KD8xPN9g6UuKqS",
+          "original_name": "1753204262276",
+          "format": "jpg",
+          "size_in_bytes": 567102,
+          "width": 2048,
+          "height": 1536
+        },
+        {
+          "id": "IMG_G29cWj4hykj21oEjEemca6AQr98dcN",
+          "original_name": "1753204262833",
+          "format": "jpg",
+          "size_in_bytes": 338051,
+          "width": 1280,
+          "height": 1707
+        },
+        {
+          "id": "IMG_V3qy1yPMZ2JkbNVUPgpUB9LPMoxuZd",
+          "original_name": "1753204265716",
+          "format": "jpg",
+          "size_in_bytes": 388843,
+          "width": 1280,
+          "height": 1707
+        },
+        {
+          "id": "IMG_LnPnr8kjE1ySkTzNJMQZQdT86PpwmN",
+          "original_name": "1753204265083",
+          "format": "jpg",
+          "size_in_bytes": 314373,
+          "width": 1280,
+          "height": 1707
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 111,
+        "rawLength": 616,
+        "sentences": 3,
+        "characters": 493,
+        "paragraphs": 2,
+        "readingTimeMs": 26640,
+        "readabilityIndex": 17.98918918918919
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 50,
+        "PRAISE": 9,
+        "EMPATHY": 8,
+        "APPRECIATION": 2
+      },
+      "reaction_count": 69,
+      "comment_count": 14,
+      "share_count": 0,
+      "impression_count": 2220,
+      "engagement_rate": 3.7387387387387387,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-07-22T17:11:07.775Z",
+      "post_updated_at": "2025-07-22T17:11:07.775Z",
+      "post_published_at": "2025-07-22T17:11:07.775Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-07-22T17:11:07.775Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7319932353538068481",
+      "text": "The one-day event was such a blast. Would love to see more of these events on campus. Thank you Tahir Ekin and Texas State University Center for Analytics and Data Science (TXST CADS) for organizing this and involving us students. \n\nOn a different note: Students can get 1 year of Google One at this link using their TXST email. This includes Gemini, NotebookLM plus and Google's video generation model (soon).\n \nhttps://lnkd.in/ginBEQ_f",
+      "text_attributes": [
+        {
+          "type": "PROFILE_MENTION",
+          "index": 0,
+          "start": 96,
+          "length": 10,
+          "urnValue": "ACoAAACJ940BRxaX5HXeASrscQZxsvcIe_O-w6Q"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 2,
+          "start": 111,
+          "length": 72,
+          "urnValue": "96650867"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 4,
+          "start": 413,
+          "length": 24,
+          "rawLink": "https://lnkd.in/ginBEQ_f",
+          "linkType": "external",
+          "resolvedLink": "https://lnkd.in/ginBEQ_f"
+        }
+      ],
+      "content_type": "Reshare",
+      "hashtags": null,
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 71,
+        "rawLength": 437,
+        "sentences": 6,
+        "characters": 357,
+        "paragraphs": 3,
+        "readingTimeMs": 17040,
+        "readabilityIndex": 8.169342723004696
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 19,
+        "PRAISE": 4,
+        "EMPATHY": 1
+      },
+      "reaction_count": 24,
+      "comment_count": 1,
+      "share_count": 1,
+      "impression_count": 822,
+      "engagement_rate": 3.1630170316301705,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-04-21T03:57:51.182Z",
+      "post_updated_at": "2025-04-21T03:57:51.182Z",
+      "post_published_at": "2025-04-21T03:57:51.182Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-04-21T03:57:51.182Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7315929487748079617",
+      "text": "These past few weeks have been the most engaging and intense of my life. From talking to over 100 people at SXSW while running on just 3 hours of sleep, to attending the Teaching and Learning Symposium, nothing failed to surprise me. I don’t think my body could have handled all this socializing if not for the amazing people I met during these events.\n\nHere are a few notable ones:\n1. Matthew Hall, CISSP, CHFI - A really fun guy with such a strong handshake. Thank you for bringing AI to TXST and making the AI Symposium possible, and for letting ACM AI @ TXST host demo tables there. I can’t skip mentioning Texas State University Center for Analytics and Data Science (TXST CADS), Dr. Tahir Ekin, and Christi Moncrief while on the topic of the AI Symposium. Also, a shoutout to Ms. Kimberly Conner, JD, for planning everything at the event, and Ryan Lara for teaching me so much about cloud computing.\n\n2. Aimee Kendall Roundtree - The person with the strongest energy ever. I had the chance to demo my Find&Fund project to her and received incredible feedback, uncovering blind spots I wouldn’t have considered otherwise.\n\n3. Harshal Bhatia - Bhaiya, literally the smartest and most strategic guy ever. I learned the most amazing things from him and am so grateful I met you while volunteering.\n\n4. dr. nitin bajaj - Lowkey the most approachable guy in the world. Thank you for bringing the South Asian community together with the American South Asian Network (ASAN). This is an incredible initiative, and I’d love to get involved in more of your events.\n\n5. Dr. Veronica Perez - Her research project on LLM persuasion is top-notch, and she’s one of the most cutting-edge researchers in the AI field at TXST.\n\nAnd all the other amazing people I met during these events. It wouldn’t be possible to name all the 100+ people I talked to while volunteering at SXSW, but it was a once-in-a-lifetime experience, and Austin has officially stolen my heart at this point.",
+      "text_attributes": [
+        {
+          "type": "PROFILE_MENTION",
+          "index": 0,
+          "start": 386,
+          "length": 25,
+          "urnValue": "ACoAAAuMrF8BsX45dIu8M8yFseGcoFw4javU_4g"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 2,
+          "start": 549,
+          "length": 13,
+          "urnValue": "100511100"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 4,
+          "start": 611,
+          "length": 72,
+          "urnValue": "96650867"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 6,
+          "start": 689,
+          "length": 10,
+          "urnValue": "ACoAAACJ940BRxaX5HXeASrscQZxsvcIe_O-w6Q"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 8,
+          "start": 705,
+          "length": 16,
+          "urnValue": "ACoAABG_UMEBg3DLFvHFKd8XXW4hnLmS-Z-xqZc"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 10,
+          "start": 786,
+          "length": 19,
+          "urnValue": "ACoAADMHvxQB2NtpyDkZYfw-o7RnQS63CIEfq5s"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 12,
+          "start": 849,
+          "length": 9,
+          "urnValue": "ACoAAADblLEBb8Wjh5pP9bKkGtJpQueim5BYqJU"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 14,
+          "start": 910,
+          "length": 23,
+          "urnValue": "ACoAAAbDk3IBrT32GxVr1kLyUcC0djTWvbe698U"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 16,
+          "start": 1131,
+          "length": 14,
+          "urnValue": "ACoAABRweJ0BEfS5U6WpaAlNajUoj9jNhxqD608"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 18,
+          "start": 1304,
+          "length": 15,
+          "urnValue": "ACoAAADzDaUBYVbdr8mx0z2Nm2KyEOqeoLUzLUE"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 20,
+          "start": 1436,
+          "length": 35,
+          "urnValue": "91390945"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": null,
+      "images": [
+        {
+          "id": "IMG_YzKxJwivgCFNbvrySbWDfwAUcUxaVG",
+          "original_name": "1744253482973",
+          "format": "jpg",
+          "size_in_bytes": 251385,
+          "width": 1280,
+          "height": 1898
+        },
+        {
+          "id": "IMG_LzCX8Ck3i4T5VxE5DNJyidn5hhvEgF",
+          "original_name": "1744253511469",
+          "format": "jpg",
+          "size_in_bytes": 232634,
+          "width": 1280,
+          "height": 1707
+        },
+        {
+          "id": "IMG_b1wernmJUACaUSkYveam9QU8ahq4Ke",
+          "original_name": "1744253502174",
+          "format": "jpg",
+          "size_in_bytes": 469414,
+          "width": 1280,
+          "height": 1700
+        },
+        {
+          "id": "IMG_pArdLfdpFWVxmJ2QXDALXrB2NgkqoA",
+          "original_name": "1744253509811",
+          "format": "jpg",
+          "size_in_bytes": 515895,
+          "width": 2048,
+          "height": 1536
+        },
+        {
+          "id": "IMG_sFN5ksg2o82cgExJyPmRsTgf18bNNd",
+          "original_name": "1744253491878",
+          "format": "jpg",
+          "size_in_bytes": 435920,
+          "width": 2048,
+          "height": 1449
+        },
+        {
+          "id": "IMG_Gzo2RqkK9iufyQck4nxA1eqJec7j2h",
+          "original_name": "1744253510153",
+          "format": "jpg",
+          "size_in_bytes": 568468,
+          "width": 2048,
+          "height": 1536
+        },
+        {
+          "id": "IMG_cGh7aDRRNyrdYLE3uT2HF8CQWhkrKR",
+          "original_name": "1744253511293",
+          "format": "jpg",
+          "size_in_bytes": 196481,
+          "width": 1280,
+          "height": 1707
+        },
+        {
+          "id": "IMG_V1uCbdMLsUCiLMy65AnbURMsgzpHYo",
+          "original_name": "1744253502341",
+          "format": "jpg",
+          "size_in_bytes": 378273,
+          "width": 1280,
+          "height": 1700
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 350,
+        "rawLength": 1967,
+        "sentences": 27,
+        "characters": 1561,
+        "paragraphs": 8,
+        "readingTimeMs": 84000,
+        "readabilityIndex": 6.05808148148148
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 86,
+        "PRAISE": 18,
+        "EMPATHY": 14
+      },
+      "reaction_count": 118,
+      "comment_count": 14,
+      "share_count": 2,
+      "impression_count": 4824,
+      "engagement_rate": 2.7777777777777777,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-04-10T02:51:53.645Z",
+      "post_updated_at": "2025-04-10T02:51:53.645Z",
+      "post_published_at": "2025-04-10T02:51:53.645Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-04-10T02:51:53.645Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7304159219887259648",
+      "text": "Was so tired after 27 hours but definitely worth it.\n\nA big thanks to : \n- Michael Daigler: For coordinating everything, the fruits during the hackathon and for the motivating talk at 4am.\n- Hardik Shah: For guiding our whole team throughout the process and teaching us the tips and tricks behind the amazing technology that is llama stack.",
+      "text_attributes": [
+        {
+          "type": "PROFILE_MENTION",
+          "index": 0,
+          "start": 75,
+          "length": 15,
+          "urnValue": "ACoAACvJzVYBwp-yPXXxBGl-BbQyDu9Spf_9oEc"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 2,
+          "start": 191,
+          "length": 11,
+          "urnValue": "ACoAAAYLCDYBkkbGGjOD3JWrfx8p04XcpIv3rAA"
+        }
+      ],
+      "content_type": "Reshare",
+      "hashtags": null,
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 58,
+        "rawLength": 340,
+        "sentences": 4,
+        "characters": 273,
+        "paragraphs": 4,
+        "readingTimeMs": 13920,
+        "readabilityIndex": 7.989482758620689
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 20,
+        "PRAISE": 5,
+        "EMPATHY": 4
+      },
+      "reaction_count": 29,
+      "comment_count": 3,
+      "share_count": 0,
+      "impression_count": 1177,
+      "engagement_rate": 2.7187765505522514,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-03-08T15:21:02.863Z",
+      "post_updated_at": "2025-03-08T15:21:02.863Z",
+      "post_published_at": "2025-03-08T15:21:02.863Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-03-08T15:21:02.863Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7301004747572944897",
+      "text": "Great meeting everybody yesterday. Such great conversations with such great people. Made me wanna do more AI talks on campus. \n\nThank you to the speakers and my team members for pulling this show on in such a small timeframe. We are representing the students demands on this topic.",
+      "text_attributes": [],
+      "content_type": "Reshare",
+      "hashtags": null,
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 48,
+        "rawLength": 281,
+        "sentences": 5,
+        "characters": 227,
+        "paragraphs": 2,
+        "readingTimeMs": 11520,
+        "readabilityIndex": 5.644375000000004
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 14,
+        "PRAISE": 1
+      },
+      "reaction_count": 15,
+      "comment_count": 0,
+      "share_count": 0,
+      "impression_count": 697,
+      "engagement_rate": 2.1520803443328553,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-02-27T22:26:18.071Z",
+      "post_updated_at": "2025-02-27T22:26:18.071Z",
+      "post_published_at": "2025-02-27T22:26:18.071Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-02-27T22:26:18.071Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7297066334314541056",
+      "text": "💥 First Place at TXST Open Datathon!\n\nMoments of controlled chaos has led to this LinkedIn post!\nThere were so many moments when I almost didn't attend this year's TXST Open Datathon; prior commitments, deadlines, and mismatched teams almost derailed our participation. But against all odds, my team (Kusum Bhattarai Sharma, Raghav Ojha, BETHIREDDY AJAY) not only participated but clinched the first place award at an event where over 24 teams presented! Even during our pitch, my voice was shaking and imposter syndrome was in full swing - but we did it! 🚀 \n\nSo, what did we create? Something that hits close to home: we tackled the pressing issue of parking at Texas State University. Our team identified three optimal spots for new parking facilities on campus, based on a DESIRABILITY score computed with our Machine Learning models. \n\nWe developed an algorithm for optimizing parking efficiency and vehicle allocation for new students.\n\nWe presented our findings in the Mixed group, competing with both undergrad and grad students, and emerged victorious! \n\nA massive thank you to my incredible team members:\n\nOur project was backed by solid research, ensuring top-notch data accuracy.\n\nCheck out the demo app on Streamlit to see these things in action! \n\nSpecial thanks to:\n\nPranesh Aswath: For the great keynote and insightful discussion on how we students should spend our time and focus.\nG. Marc Turner: For the amazing keynote, offering to help us get the data, vouching for us, and teaching us so much about data literacy.\nKevin Garza: For judging our project, asking insightful questions, and helping refine our work.\nJennifer Gross: For inspiring me with your Linux phone and your offer to help with the scholarship project.\nTahir Ekin and Texas State University Center for Analytics and Data Science (TXST CADS): For your continued support.\nXuan Zhou: For making the whole event smooth and possible.\n\nAnd last but not least, a huge thanks to the library staff for helping with the event.\n\nSometimes, the best projects come from our own struggles. Here's to all the students who pull all-nighters for a datathon!  \n\nhttps://lnkd.in/gq-6rerA\n\n#AI #Education #Innovation #winner #TXST #ML",
+      "text_attributes": [
+        {
+          "type": "PROFILE_MENTION",
+          "index": 0,
+          "start": 301,
+          "length": 22,
+          "urnValue": "ACoAAEUDQcEBlbnu_O-hg267XUyyHbzAOZRUxLg"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 2,
+          "start": 325,
+          "length": 11,
+          "urnValue": "ACoAADTOGwIByiXztcUI0rkpuySF3V6vvBlBjGo"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 4,
+          "start": 338,
+          "length": 15,
+          "urnValue": "ACoAACtB4QsB57QCySymyqf3nLIwhqkpR3qxHaQ"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 6,
+          "start": 1281,
+          "length": 14,
+          "urnValue": "ACoAAAEXwD8BPYgXGnVn77FFoAH7G_yME_QLZNY"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 8,
+          "start": 1397,
+          "length": 14,
+          "urnValue": "ACoAAAFKq1gB8-o3dVCVkxUt5BMMg6ZJ4aSd7-g"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 10,
+          "start": 1534,
+          "length": 11,
+          "urnValue": "ACoAACRpKOMBLPjFRPRVKaRqdcooEvE96rbw4X4"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 12,
+          "start": 1630,
+          "length": 14,
+          "urnValue": "ACoAACU-Cc0BUOCJjcN_aXtSNA2H78FNyT-fVJs"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 14,
+          "start": 1738,
+          "length": 10,
+          "urnValue": "ACoAAACJ940BRxaX5HXeASrscQZxsvcIe_O-w6Q"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 16,
+          "start": 1753,
+          "length": 72,
+          "urnValue": "96650867"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 18,
+          "start": 1855,
+          "length": 9,
+          "urnValue": "ACoAACNiosEBETN8uNHmThWAv93iA8y82qQq3oc"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 20,
+          "start": 2129,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gq-6rerA",
+          "linkType": "external",
+          "resolvedLink": "https://txst-datathon.replit.app/"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 21,
+          "start": 2155,
+          "length": 3,
+          "hashtag": "ai"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 22,
+          "start": 2159,
+          "length": 10,
+          "hashtag": "education"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 23,
+          "start": 2170,
+          "length": 11,
+          "hashtag": "innovation"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 24,
+          "start": 2182,
+          "length": 7,
+          "hashtag": "winner"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 25,
+          "start": 2190,
+          "length": 5,
+          "hashtag": "txst"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 26,
+          "start": 2196,
+          "length": 3,
+          "hashtag": "ml"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": [
+        {
+          "count": 1,
+          "hashtag": "ai"
+        },
+        {
+          "count": 1,
+          "hashtag": "education"
+        },
+        {
+          "count": 1,
+          "hashtag": "innovation"
+        },
+        {
+          "count": 1,
+          "hashtag": "ml"
+        },
+        {
+          "count": 1,
+          "hashtag": "txst"
+        },
+        {
+          "count": 1,
+          "hashtag": "winner"
+        }
+      ],
+      "images": [
+        {
+          "id": "IMG_mrTDeVsPdHJGWqTcMRWFRgdU3AvsDZ",
+          "original_name": "1739756185658",
+          "format": "jpg",
+          "size_in_bytes": 358182,
+          "width": 2048,
+          "height": 1536
+        },
+        {
+          "id": "IMG_DEpuYPyu7vtU7ozwPu6YkyJBLfDkgS",
+          "original_name": "1739756184772",
+          "format": "jpg",
+          "size_in_bytes": 496970,
+          "width": 2048,
+          "height": 1536
+        },
+        {
+          "id": "IMG_MZF7WA9WzPoBSrQCJ6vQkpe3pCWAa9",
+          "original_name": "1739756181901",
+          "format": "jpg",
+          "size_in_bytes": 191681,
+          "width": 1663,
+          "height": 1247
+        },
+        {
+          "id": "IMG_LMEtT2p36ZJPbDzF7kXpTQViiwksYY",
+          "original_name": "1739756185761",
+          "format": "jpg",
+          "size_in_bytes": 298551,
+          "width": 2048,
+          "height": 1262
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 352,
+        "rawLength": 2201,
+        "sentences": 28,
+        "characters": 1770,
+        "paragraphs": 20,
+        "readingTimeMs": 84480,
+        "readabilityIndex": 8.539521103896103
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 88,
+        "PRAISE": 30,
+        "EMPATHY": 16,
+        "APPRECIATION": 1
+      },
+      "reaction_count": 135,
+      "comment_count": 44,
+      "share_count": 4,
+      "impression_count": 6948,
+      "engagement_rate": 2.633851468048359,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-02-17T01:36:27.367Z",
+      "post_updated_at": "2025-02-17T01:36:27.367Z",
+      "post_published_at": "2025-02-17T01:36:27.367Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-02-17T01:36:27.367Z"
+    },
+    {
+      "urn": "urn:li:share:7295287679489871877",
+      "text": "This is going to be great. Sign up seats filling up fast!!",
+      "text_attributes": [],
+      "content_type": "Reshare",
+      "hashtags": null,
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 12,
+        "rawLength": 58,
+        "sentences": 2,
+        "characters": 44,
+        "paragraphs": 1,
+        "readingTimeMs": 2880,
+        "readabilityIndex": -1.1600000000000001
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 5,
+        "PRAISE": 1
+      },
+      "reaction_count": 6,
+      "comment_count": 1,
+      "share_count": 1,
+      "impression_count": 652,
+      "engagement_rate": 1.2269938650306749,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-02-12T03:48:42.810Z",
+      "post_updated_at": "2025-02-12T03:48:42.810Z",
+      "post_published_at": "2025-02-12T03:48:42.810Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-02-12T03:48:42.810Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7291179985464135680",
+      "text": "We are the back for the semester. Thank you to everyone that attended our first meeting.",
+      "text_attributes": [],
+      "content_type": "Reshare",
+      "hashtags": null,
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 16,
+        "rawLength": 88,
+        "sentences": 2,
+        "characters": 71,
+        "paragraphs": 1,
+        "readingTimeMs": 3840,
+        "readabilityIndex": 3.470625000000002
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 10,
+        "PRAISE": 2
+      },
+      "reaction_count": 12,
+      "comment_count": 0,
+      "share_count": 0,
+      "impression_count": 944,
+      "engagement_rate": 1.2711864406779663,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-01-31T19:46:12.221Z",
+      "post_updated_at": "2025-01-31T19:46:12.221Z",
+      "post_published_at": "2025-01-31T19:46:12.221Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-01-31T19:46:12.221Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7290417242058461185",
+      "text": "Researchers know the pain of hunting for funding - but it's not because there isn't enough money out there. The real issue is an ASYMMETRIC DATA PROBLEM: too many opportunities with vague descriptions.\n\nI've scraped over 40,000 grants, SBIRs, and funding opportunities from NSF, grants.gov, NIF to prove that funding exists; it's just hard to find. That's why I've built https://lnkd.in/g-HHNbPb. Here's how it works:\n\nPersonalized Matching: We pull your research profile from OpenAlex, create a tailored researcher profile, and match it with grants that align with your work.\nPrecision Over Quantity: Instead of overwhelming you with options, we provide 5 highly relevant grants using cosine similarity between profile embedding and grants embeddings, keyword overlap and some LLM magic .\n\nThis is just v1, but I'm excited to see how it can evolve with your feedback. Custom recommendations will need more compute, but I believe it's doable.\n\nTry it out here: https://lnkd.in/g-HHNbPb and tell us how it changes your grant hunting experience or share with a colleague who's struggling to match their research with funding.\n\nCheck out my code for frontend here: https://lnkd.in/gP4h_q3K\nCode for recommendation system here: https://lnkd.in/gD8KY8bv\n\n#ResearchFunding #AcademicGrants #InnovationInResearch Ingram School of Engineering McCoy College of Business at Texas State University",
+      "text_attributes": [
+        {
+          "type": "HYPERLINK",
+          "index": 0,
+          "start": 279,
+          "length": 10,
+          "rawLink": "http://grants.gov",
+          "linkType": "external",
+          "resolvedLink": "https://grants.gov/"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 1,
+          "start": 371,
+          "length": 24,
+          "rawLink": "https://lnkd.in/g-HHNbPb",
+          "linkType": "external",
+          "resolvedLink": "https://findandfund.vercel.app/"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 2,
+          "start": 961,
+          "length": 24,
+          "rawLink": "https://lnkd.in/g-HHNbPb",
+          "linkType": "external",
+          "resolvedLink": "https://findandfund.vercel.app/"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 3,
+          "start": 1162,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gP4h_q3K",
+          "linkType": "external",
+          "resolvedLink": "https://github.com/Tar-ive/find-fund"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 4,
+          "start": 1224,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gD8KY8bv",
+          "linkType": "external",
+          "resolvedLink": "https://github.com/Tar-ive/grants_recsys"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 5,
+          "start": 1250,
+          "length": 16,
+          "hashtag": "researchfunding"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 6,
+          "start": 1267,
+          "length": 15,
+          "hashtag": "academicgrants"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 7,
+          "start": 1283,
+          "length": 21,
+          "hashtag": "innovationinresearch"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 8,
+          "start": 1305,
+          "length": 28,
+          "urnValue": "81946845"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 10,
+          "start": 1334,
+          "length": 51,
+          "urnValue": "35653455"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": [
+        {
+          "count": 1,
+          "hashtag": "academicgrants"
+        },
+        {
+          "count": 1,
+          "hashtag": "innovationinresearch"
+        },
+        {
+          "count": 1,
+          "hashtag": "researchfunding"
+        }
+      ],
+      "images": [
+        {
+          "id": "IMG_gMtArZ4SGsKK5iecsvBbE9k7tkHuzd",
+          "original_name": "1738170918466",
+          "format": "jpg",
+          "size_in_bytes": 94824,
+          "width": 2048,
+          "height": 1260
+        },
+        {
+          "id": "IMG_CBHr2aUXLj2hQRZV3NiRsDHuJWirfW",
+          "original_name": "1738170918539",
+          "format": "jpg",
+          "size_in_bytes": 172610,
+          "width": 2048,
+          "height": 1268
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 205,
+        "rawLength": 1385,
+        "sentences": 13,
+        "characters": 1164,
+        "paragraphs": 9,
+        "readingTimeMs": 49200,
+        "readabilityIndex": 13.198225140712943
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 25,
+        "PRAISE": 3,
+        "EMPATHY": 4
+      },
+      "reaction_count": 32,
+      "comment_count": 4,
+      "share_count": 0,
+      "impression_count": 2192,
+      "engagement_rate": 1.6423357664233578,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2025-01-29T17:15:20.648Z",
+      "post_updated_at": "2025-01-29T17:15:20.648Z",
+      "post_published_at": "2025-01-29T17:15:20.648Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2025-01-29T17:15:20.648Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7276434728172339201",
+      "text": "I recently built an MCP which lets Anthropic's Claude fetch grants data from grants.gov. \n\nSome key features:\n- Search for grants by keyword\n- Paginate the search results\n- Display detailed info on each grant, including funding details, deadlines, and eligibility\n\nCheck out the code here: https://lnkd.in/gfxYpaD8\n\nLet me know if you have any questions or feedback! Happy to discuss further.\n#opensource #mcp #grants #govtech #llm",
+      "text_attributes": [
+        {
+          "type": "COMPANY_NAME",
+          "index": 0,
+          "start": 35,
+          "length": 9,
+          "urnValue": "74126343"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 2,
+          "start": 77,
+          "length": 10,
+          "rawLink": "http://grants.gov",
+          "linkType": "external",
+          "resolvedLink": "https://grants.gov/"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 3,
+          "start": 290,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gfxYpaD8",
+          "linkType": "external",
+          "resolvedLink": "https://lnkd.in/gfxYpaD8"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 4,
+          "start": 393,
+          "length": 11,
+          "hashtag": "opensource"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 5,
+          "start": 405,
+          "length": 4,
+          "hashtag": "mcp"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 6,
+          "start": 410,
+          "length": 7,
+          "hashtag": "grants"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 7,
+          "start": 418,
+          "length": 8,
+          "hashtag": "govtech"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 8,
+          "start": 427,
+          "length": 4,
+          "hashtag": "llm"
+        }
+      ],
+      "content_type": "LinkedInVideo",
+      "hashtags": [
+        {
+          "count": 1,
+          "hashtag": "govtech"
+        },
+        {
+          "count": 1,
+          "hashtag": "grants"
+        },
+        {
+          "count": 1,
+          "hashtag": "llm"
+        },
+        {
+          "count": 1,
+          "hashtag": "mcp"
+        },
+        {
+          "count": 1,
+          "hashtag": "opensource"
+        }
+      ],
+      "images": [
+        {
+          "id": "IMG_4XsicdqjMM4Ewu4Taryuwja9hJX7ti",
+          "original_name": "1734837295091",
+          "format": "jpg",
+          "size_in_bytes": 31115,
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 67,
+        "rawLength": 431,
+        "sentences": 9,
+        "characters": 353,
+        "paragraphs": 8,
+        "readingTimeMs": 16080.000000000002,
+        "readabilityIndex": 7.107595356550583
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 34,
+        "PRAISE": 4,
+        "INTEREST": 2
+      },
+      "reaction_count": 40,
+      "comment_count": 8,
+      "share_count": 0,
+      "impression_count": 2270,
+      "engagement_rate": 2.1145374449339207,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2024-12-22T03:15:01.898Z",
+      "post_updated_at": "2024-12-22T03:15:01.898Z",
+      "post_published_at": "2024-12-22T03:15:01.898Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2024-12-22T03:15:01.898Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7275431878696869888",
+      "text": "Just launched the v1 of obvius.site!\n\nUpdate: The app semi-blew up on X and Tiktok and got close to 6.8k people who got recommended a place. This got my API bill up a lot but was worth it. \n\nObvius uses Google DeepMind's Gemini 2.0 Model and Google Maps Street View's API to help you find unique places. It's like having a personal travel explorer right in your pocket.\n\n'Obvius' in Latin relates to 'coming across' or 'finding'. This app helps you encounter unique places you might not discover on your own. Check it out and tell me what you think:  https://obvius.site/",
+      "text_attributes": [
+        {
+          "type": "HYPERLINK",
+          "index": 0,
+          "start": 24,
+          "length": 11,
+          "rawLink": "http://obvius.site",
+          "linkType": "external",
+          "resolvedLink": "https://obvius.site/"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 1,
+          "start": 203,
+          "length": 15,
+          "urnValue": "1594050"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 3,
+          "start": 242,
+          "length": 23,
+          "urnValue": "10503580"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 5,
+          "start": 551,
+          "length": 20,
+          "rawLink": "https://obvius.site/",
+          "linkType": "external",
+          "resolvedLink": "https://obvius.site/"
+        }
+      ],
+      "content_type": "LinkedInVideo",
+      "hashtags": null,
+      "images": [
+        {
+          "id": "IMG_u1sqZpvETHEfn4AoykapHXVBzW385Q",
+          "original_name": "1734598218933",
+          "format": "jpg",
+          "size_in_bytes": 63406,
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 104,
+        "rawLength": 571,
+        "sentences": 8,
+        "characters": 463,
+        "paragraphs": 4,
+        "readingTimeMs": 24960,
+        "readabilityIndex": 6.038557692307691
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 28,
+        "PRAISE": 7,
+        "APPRECIATION": 1
+      },
+      "reaction_count": 36,
+      "comment_count": 9,
+      "share_count": 0,
+      "impression_count": 2014,
+      "engagement_rate": 2.234359483614697,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2024-12-19T17:11:01.036Z",
+      "post_updated_at": "2024-12-19T17:11:01.036Z",
+      "post_published_at": "2024-12-19T17:11:01.036Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2024-12-19T17:11:01.036Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7266666319960268801",
+      "text": "We've all heard AI companies touting promises of world-changing research, yet tangible results often feel just out of reach. I thought well if big AI companies won't build something I will. \n\nOver the past week, I took on the challenge of building the same AI research application using two different approaches:\n\n1️⃣ From Scratch with Code: I developed a simple Streamlit frontend with a complex architecture based on the Mixture of Agents architecture—imagine a team of LLMs similar to ChatGPT, each with a specific role, working together harmoniously. This was built from the ground up using Groq and the impressive Perplexity API. Crafting this was both intense and incredibly rewarding.\n\n2️⃣ The No-Code Route: I recreated the app using Langflow on DataStax. While there was a learning curve (yes, even with no-code!), once overcome, it was astounding how much could be achieved without traditional coding. For visual thinkers like myself, no-code platforms can unlock creativity in ways that conventional coding doesn't. It almost made coding feel... hard! 😅\n\n The Takeaway: Both approaches have their merits. Coding offers deep customization, while no-code platforms provide accessibility and speed ( I was able to spin up a prototype in 3 hours). \n\n Check out the Streamlit app here: https://lnkd.in/gG8EYJYc\n\nI'd love to hear your thoughts on coding vs. no-code in AI development. Which do you prefer, and why?",
+      "text_attributes": [
+        {
+          "type": "COMPANY_NAME",
+          "index": 0,
+          "start": 363,
+          "length": 9,
+          "urnValue": "18997788"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 2,
+          "start": 595,
+          "length": 4,
+          "urnValue": "12994410"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 4,
+          "start": 619,
+          "length": 10,
+          "urnValue": "88007673"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 6,
+          "start": 742,
+          "length": 8,
+          "urnValue": "76529468"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 8,
+          "start": 754,
+          "length": 8,
+          "urnValue": "1786002"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 10,
+          "start": 1272,
+          "length": 9,
+          "urnValue": "18997788"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 12,
+          "start": 1292,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gG8EYJYc",
+          "linkType": "external",
+          "resolvedLink": "https://lnkd.in/gG8EYJYc"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": null,
+      "images": [
+        {
+          "id": "IMG_VgePdyYFRXCKQinw7fBgctsYMcR84Y",
+          "original_name": "1732508257312",
+          "format": "jpg",
+          "size_in_bytes": 173314,
+          "width": 2048,
+          "height": 1222
+        },
+        {
+          "id": "IMG_yiWG1zDRqSbNZockjpErpWbZ25imHH",
+          "original_name": "1732508257487",
+          "format": "jpg",
+          "size_in_bytes": 250755,
+          "width": 2048,
+          "height": 1231
+        },
+        {
+          "id": "IMG_T4WhoxQysKLKRy2tBz5xyCLc3uqkZ9",
+          "original_name": "1732508257613",
+          "format": "jpg",
+          "size_in_bytes": 193352,
+          "width": 2048,
+          "height": 1152
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 223,
+        "rawLength": 1420,
+        "sentences": 18,
+        "characters": 1148,
+        "paragraphs": 7,
+        "readingTimeMs": 53520,
+        "readabilityIndex": 9.011439960139512
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 34,
+        "PRAISE": 3,
+        "EMPATHY": 1,
+        "APPRECIATION": 1
+      },
+      "reaction_count": 39,
+      "comment_count": 4,
+      "share_count": 0,
+      "impression_count": 2465,
+      "engagement_rate": 1.7444219066937119,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2024-11-25T17:00:01.815Z",
+      "post_updated_at": "2024-11-25T17:00:01.815Z",
+      "post_published_at": "2024-11-25T17:00:01.815Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2024-11-25T17:00:01.815Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7264072637822169090",
+      "text": "I’m always amazed by how much impact a small group of students can have!\n\nAs part of Hackacat Nano at Texas State University, we developed a solution to enhance Bobcat Bounty, a student-run food pantry that addresses food insecurity on campus. This helps to carry forward the idea of global, national, state, local, and institutional food security, and explores novel technological solutions to those problems\n\nThe Challenge:\nUsers struggled with knowing the real-time inventory of available items, often leading to unnecessary trips to the pantry, only to find certain items out of stock.\n\nOur Solution (Built in just 7 hours!):\n✅ A web app and smartphone app that display a real-time inventory of available food items, complete with dietary details (e.g., gluten-free, vegetarian).\n✅ AI chatbot for question answering and AI-generated recipe suggestions to inspire users to make the most of pantry items.\n✅ User-enabled updates to inventory, ensuring accurate stock information for others.\n\nTechnologies Used:\nFrontend: React\nBackend: Postgres Neon\nDesign: Figma prototype\nHosting: Replit\n\nI’m incredibly proud of what our team made up of Kusum Bhattarai Sharma, BETHIREDDY AJAY, Ella Maldonado, Sri Naga Sri Govvala, Fidel Loza, Stephanie Valderrama accomplished in such a short time, combining creativity, collaboration, and technical skills to deliver a meaningful solution.\n\nA big thank you to Bobcat Bounty for inspiring us, the HACKACAT organizers Mason Melead, Kailey Couillard and Frank Jones for this opportunity, and my amazing teammates for making this possible. \n\nIt was a pleasure to also connect with Jayneba Dieye after the hackathon and get some feedback about our project. \n\nYou can check out the web app here: \nhttps://lnkd.in/gXQ_ymsY\n\nGIthub code: \nhttps://lnkd.in/gFwUC39n\nhttps://lnkd.in/gZyhNWhK\n\n#Hackathon #TechForGood #ReactJS #NeonDatabase #Replit #TexasStateUniversity #FoodSecurity",
+      "text_attributes": [
+        {
+          "type": "COMPANY_NAME",
+          "index": 0,
+          "start": 85,
+          "length": 8,
+          "urnValue": "105014536"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 2,
+          "start": 1022,
+          "length": 5,
+          "urnValue": "31249224"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 4,
+          "start": 1059,
+          "length": 5,
+          "urnValue": "3650502"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 6,
+          "start": 1084,
+          "length": 6,
+          "urnValue": "18542592"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 8,
+          "start": 1141,
+          "length": 22,
+          "urnValue": "ACoAAEUDQcEBlbnu_O-hg267XUyyHbzAOZRUxLg"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 10,
+          "start": 1165,
+          "length": 15,
+          "urnValue": "ACoAACtB4QsB57QCySymyqf3nLIwhqkpR3qxHaQ"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 12,
+          "start": 1182,
+          "length": 14,
+          "urnValue": "ACoAADiFV2oBpYbmkO-iMBUi5PRIkxlOjUYxXGQ"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 14,
+          "start": 1198,
+          "length": 20,
+          "urnValue": "ACoAACY1QogBNqz06FPGlTKMYRGcufMg6yrR0vs"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 16,
+          "start": 1232,
+          "length": 20,
+          "urnValue": "ACoAAErRoOEBPszG4He5XIf0DxMwgZ3Cas0QY48"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 18,
+          "start": 1456,
+          "length": 12,
+          "urnValue": "ACoAAC0BJK8BYzQUk1HS1sz23Pk_iOiNzMLdRm8"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 20,
+          "start": 1470,
+          "length": 16,
+          "urnValue": "ACoAAEvciqMBb-tmDqoYUb4DlZmx99855og9vZc"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 22,
+          "start": 1491,
+          "length": 11,
+          "urnValue": "ACoAAD6uWwkBIcuiEm4cufH-hEYfI31iRQ3Xl3Q"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 24,
+          "start": 1617,
+          "length": 13,
+          "urnValue": "ACoAAC4c4HkByIX-y89D72LWP0W225x3Umb093M"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 26,
+          "start": 1731,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gXQ_ymsY",
+          "linkType": "external",
+          "resolvedLink": "https://bobcat-bounty-app-1-tarive22.replit.app/"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 27,
+          "start": 1771,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gFwUC39n",
+          "linkType": "external",
+          "resolvedLink": "https://github.com/kusum-bhattarai/BobcatBounty"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 28,
+          "start": 1796,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gZyhNWhK",
+          "linkType": "external",
+          "resolvedLink": "https://github.com/Tar-ive/BobcatBounty"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 29,
+          "start": 1822,
+          "length": 10,
+          "hashtag": "hackathon"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 30,
+          "start": 1833,
+          "length": 12,
+          "hashtag": "techforgood"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 31,
+          "start": 1846,
+          "length": 8,
+          "hashtag": "reactjs"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 32,
+          "start": 1855,
+          "length": 13,
+          "hashtag": "neondatabase"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 33,
+          "start": 1869,
+          "length": 7,
+          "hashtag": "replit"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 34,
+          "start": 1877,
+          "length": 21,
+          "hashtag": "texasstateuniversity"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 35,
+          "start": 1899,
+          "length": 13,
+          "hashtag": "foodsecurity"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": [
+        {
+          "count": 1,
+          "hashtag": "foodsecurity"
+        },
+        {
+          "count": 1,
+          "hashtag": "hackathon"
+        },
+        {
+          "count": 1,
+          "hashtag": "neondatabase"
+        },
+        {
+          "count": 1,
+          "hashtag": "reactjs"
+        },
+        {
+          "count": 1,
+          "hashtag": "replit"
+        },
+        {
+          "count": 1,
+          "hashtag": "techforgood"
+        },
+        {
+          "count": 1,
+          "hashtag": "texasstateuniversity"
+        }
+      ],
+      "images": [
+        {
+          "id": "IMG_zCJ8aC2QHZUbRrEwnm1Qu8jaA3cASZ",
+          "original_name": "1731889876136",
+          "format": "jpg",
+          "size_in_bytes": 254155,
+          "width": 2048,
+          "height": 1139
+        },
+        {
+          "id": "IMG_yZw2vfpzTYh623G9NLWnbfBXfweykg",
+          "original_name": "1731889874831",
+          "format": "jpg",
+          "size_in_bytes": 106965,
+          "width": 1471,
+          "height": 1536
+        },
+        {
+          "id": "IMG_MkvdxjMQPKPuBUQJi6iHbv5YGfZKsD",
+          "original_name": "1731889875098",
+          "format": "jpg",
+          "size_in_bytes": 104651,
+          "width": 2048,
+          "height": 1142
+        },
+        {
+          "id": "IMG_jPJNwFUyJUJXr2q1XeKhtmiN1uPGFf",
+          "original_name": "1731889874767",
+          "format": "jpg",
+          "size_in_bytes": 161807,
+          "width": 2048,
+          "height": 1108
+        },
+        {
+          "id": "IMG_zujhaqPdi3LDmsvTWwCVD6fUjdCfGz",
+          "original_name": "1731889874648",
+          "format": "jpg",
+          "size_in_bytes": 113847,
+          "width": 2048,
+          "height": 1140
+        },
+        {
+          "id": "IMG_qhoMpzqunEp3ZNHFMLxE1La7YAK48E",
+          "original_name": "1731889875276",
+          "format": "jpg",
+          "size_in_bytes": 88910,
+          "width": 2048,
+          "height": 1332
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 279,
+        "rawLength": 1912,
+        "sentences": 23,
+        "characters": 1574,
+        "paragraphs": 22,
+        "readingTimeMs": 66960,
+        "readabilityIndex": 11.207045348293597
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 41,
+        "PRAISE": 6,
+        "EMPATHY": 5
+      },
+      "reaction_count": 52,
+      "comment_count": 8,
+      "share_count": 6,
+      "impression_count": 3079,
+      "engagement_rate": 2.1435531016563822,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2024-11-18T00:31:17.245Z",
+      "post_updated_at": "2024-11-18T00:31:17.245Z",
+      "post_published_at": "2024-11-18T00:31:17.245Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2024-11-18T00:31:17.245Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7263254035195924480",
+      "text": "It was great fun building an AI academic advisor for McCoy College of Business at Texas State University.  \n\nYou can try it out here: https://lnkd.in/gdMehPzx\n\n\nI scraped the universities course catalog information and put it in a vector database to be queried by a LLM model. A big thanks to Christian Reetz for the idea and his code on the same topic.",
+      "text_attributes": [
+        {
+          "type": "COMPANY_NAME",
+          "index": 0,
+          "start": 53,
+          "length": 51,
+          "urnValue": "35653455"
+        },
+        {
+          "type": "HYPERLINK",
+          "index": 2,
+          "start": 134,
+          "length": 24,
+          "rawLink": "https://lnkd.in/gdMehPzx",
+          "linkType": "external",
+          "resolvedLink": "https://txst-acadamic-ai.vercel.app/chat/short-context"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 3,
+          "start": 293,
+          "length": 15,
+          "urnValue": "ACoAACKOxhwBJ3JMo3j2aCVwVB3nJccqd87ltkc"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": null,
+      "images": [
+        {
+          "id": "IMG_TS6T2bRpRoXV5tVTbjeg1GHfcrcGyF",
+          "original_name": "1731694704873",
+          "format": "jpg",
+          "size_in_bytes": 147579,
+          "width": 1314,
+          "height": 1536
+        },
+        {
+          "id": "IMG_6P5xZ9SawUu71Zrs2TvVtPuQUpUF4b",
+          "original_name": "1731694704919",
+          "format": "jpg",
+          "size_in_bytes": 199738,
+          "width": 1330,
+          "height": 1536
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 62,
+        "rawLength": 353,
+        "sentences": 5,
+        "characters": 288,
+        "paragraphs": 3,
+        "readingTimeMs": 14880,
+        "readabilityIndex": 6.648709677419355
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 40,
+        "PRAISE": 6,
+        "EMPATHY": 1,
+        "INTEREST": 1
+      },
+      "reaction_count": 48,
+      "comment_count": 13,
+      "share_count": 0,
+      "impression_count": 1885,
+      "engagement_rate": 3.2360742705570296,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2024-11-15T18:18:26.964Z",
+      "post_updated_at": "2024-11-15T18:18:26.964Z",
+      "post_published_at": "2024-11-15T18:18:26.964Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2024-11-15T18:18:26.964Z"
+    },
+    {
+      "urn": "urn:li:share:7258330341633908736",
+      "text": "Austin Tech Week came to a close yesterday, marking the end of an incredible event. I got to attend the Startup Crawl at the Capital Factory  alongside fellow members of the ACM AI @ TXST club, and it was a refreshing experience. It was great to connect with several innovative AI startups and gain insights directly from their founders.\n\nThank you Mason Melead for making this possible and also Texas State University Center for Analytics and Data Science (TXST CADS), for the tickets. \n\nI had the privilege of connecting with an inspiring group of individuals, including Chad Chadwell, Syed Moiz, Idrees Madni, Dylan Wu, among others. \n\nA great way to end off a productive week.",
+      "text_attributes": [
+        {
+          "type": "COMPANY_NAME",
+          "index": 0,
+          "start": 0,
+          "length": 16,
+          "urnValue": "11411984"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 2,
+          "start": 125,
+          "length": 15,
+          "urnValue": "3305629"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 4,
+          "start": 174,
+          "length": 13,
+          "urnValue": "100511100"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 6,
+          "start": 349,
+          "length": 12,
+          "urnValue": "ACoAAC0BJK8BYzQUk1HS1sz23Pk_iOiNzMLdRm8"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 8,
+          "start": 396,
+          "length": 72,
+          "urnValue": "96650867"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 10,
+          "start": 573,
+          "length": 13,
+          "urnValue": "ACoAAAAJ-_kByx8I_mdEivA697gLBWqdZT3bddA"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 12,
+          "start": 588,
+          "length": 9,
+          "urnValue": "ACoAACTlruUBChWSZ9a2Dx259z8QsTRUt8Iq61E"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 14,
+          "start": 599,
+          "length": 12,
+          "urnValue": "ACoAAAXrrEYB1LsoyHWbkThPp5m9B_iEgcywwSk"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 16,
+          "start": 613,
+          "length": 8,
+          "urnValue": "ACoAACNJhEwBoZrEKaW6j-eznh6Qjns4XN7HUVw"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": null,
+      "images": [
+        {
+          "id": "IMG_Lmm5fPuSM8LgSuQvUAUC46ReYrd4nV",
+          "original_name": "1730520806295",
+          "format": "jpg",
+          "size_in_bytes": 621977,
+          "width": 2048,
+          "height": 1536
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 114,
+        "rawLength": 680,
+        "sentences": 6,
+        "characters": 543,
+        "paragraphs": 4,
+        "readingTimeMs": 27360,
+        "readabilityIndex": 10.504473684210527
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 35,
+        "PRAISE": 1,
+        "EMPATHY": 2
+      },
+      "reaction_count": 38,
+      "comment_count": 2,
+      "share_count": 2,
+      "impression_count": 1613,
+      "engagement_rate": 2.603843769373838,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2024-11-02T16:00:01.068Z",
+      "post_updated_at": "2024-11-02T16:00:01.068Z",
+      "post_published_at": "2024-11-02T16:00:01.068Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2024-11-02T16:00:01.068Z"
+    },
+    {
+      "urn": "urn:li:ugcPost:7256704122870013953",
+      "text": "How we created an “intimate” social media experience in 24 hours of hacking. \n\nThis weekend I had the opportunity to attend UTSA RowdyHacks along with Mason Melead, Maria Renee San Esteban  and Jonathan Davis. \n\nWe came up with the idea of a digital time capsule called “Echoz”.\n\nOur Geo-based time capsule allows everyone to share, view, and find echoes of the past while leaving more for the future.\n\nBuilt with React-native GitHub, Amazon Web Services (AWS)-s3, Groq  and a desire to learn more!\n\nWe had a blast coming up with the concept and putting together a product we were all proud of. I am surprised how much we get done in the span of 24 hours during hackathons. \n\nA big thanks to Christian Reetz, Nilanjan Chatterjee and the other mentors for all the support they provided along the way. \n\nAlso, a notable mention to all the organizers and staff that made the event possible. \n\nIf you want to know more about how we built it dm me. \n\n#hackathons #rowdyhacks",
+      "text_attributes": [
+        {
+          "type": "COMPANY_NAME",
+          "index": 0,
+          "start": 124,
+          "length": 15,
+          "urnValue": "51637167"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 2,
+          "start": 151,
+          "length": 12,
+          "urnValue": "ACoAAC0BJK8BYzQUk1HS1sz23Pk_iOiNzMLdRm8"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 4,
+          "start": 165,
+          "length": 23,
+          "urnValue": "ACoAADtxc-sBegyjG7xvNrjhAvMcBALoaTwEhK4"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 6,
+          "start": 414,
+          "length": 5,
+          "urnValue": "31249224"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 8,
+          "start": 427,
+          "length": 6,
+          "urnValue": "1418841"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 10,
+          "start": 435,
+          "length": 25,
+          "urnValue": "2382910"
+        },
+        {
+          "type": "COMPANY_NAME",
+          "index": 12,
+          "start": 465,
+          "length": 4,
+          "urnValue": "12994410"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 14,
+          "start": 692,
+          "length": 15,
+          "urnValue": "ACoAACKOxhwBJ3JMo3j2aCVwVB3nJccqd87ltkc"
+        },
+        {
+          "type": "PROFILE_MENTION",
+          "index": 16,
+          "start": 709,
+          "length": 19,
+          "urnValue": "ACoAAAOk2ekB6kl5cYS3huEcSLl4JDzpvArD7dQ"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 18,
+          "start": 946,
+          "length": 11,
+          "hashtag": "hackathons"
+        },
+        {
+          "type": "HASHTAG",
+          "index": 19,
+          "start": 958,
+          "length": 11,
+          "hashtag": "rowdyhacks"
+        }
+      ],
+      "content_type": "Image",
+      "hashtags": [
+        {
+          "count": 1,
+          "hashtag": "hackathons"
+        },
+        {
+          "count": 1,
+          "hashtag": "rowdyhacks"
+        }
+      ],
+      "images": [
+        {
+          "id": "IMG_id1wiZ3uEVtTyhV8ibeTJFMoaeCRWn",
+          "original_name": "1730133078940",
+          "format": "jpg",
+          "size_in_bytes": 160813,
+          "width": 1125,
+          "height": 2436
+        },
+        {
+          "id": "IMG_ynh24pG2Vs7uabrGycmyQauZV44pC1",
+          "original_name": "1730133083638",
+          "format": "jpg",
+          "size_in_bytes": 431300,
+          "width": 2048,
+          "height": 1536
+        },
+        {
+          "id": "IMG_2GvMq1vxbTy2uMiSX3vV5XhYExSoy9",
+          "original_name": "1730133079437",
+          "format": "jpg",
+          "size_in_bytes": 350165,
+          "width": 1280,
+          "height": 2769
+        }
+      ],
+      "document": null,
+      "actor_profile_id": "LNP_ACoAADIfatYBDF0V9ySnj-50i__CD4KQ4BX8v7w",
+      "actor_company_id": null,
+      "actor_group_id": null,
+      "text_metrics": {
+        "words": 170,
+        "rawLength": 969,
+        "sentences": 11,
+        "characters": 759,
+        "paragraphs": 10,
+        "readingTimeMs": 40800,
+        "readabilityIndex": 7.326037433155079
+      },
+      "time_zone_name": null,
+      "reaction_counts": {
+        "LIKE": 38,
+        "PRAISE": 5,
+        "EMPATHY": 5
+      },
+      "reaction_count": 48,
+      "comment_count": 2,
+      "share_count": 0,
+      "impression_count": 3912,
+      "engagement_rate": 1.278118609406953,
+      "did_self_like": null,
+      "post_scheduled_date": null,
+      "post_created_at": "2024-10-28T16:31:26.220Z",
+      "post_updated_at": "2024-10-28T16:31:26.220Z",
+      "post_published_at": "2024-10-28T16:31:26.220Z",
+      "post_deleted_at": null,
+      "normalized_post_date": "2024-10-28T16:31:26.220Z"
+    }
+  ]
+}

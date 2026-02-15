@@ -1,0 +1,25 @@
+[project]
+name = "rewind"
+version = "0.1.0"
+description = "The Intelligent Life Scheduler - AI-powered life operating system"
+requires-python = ">=3.11"
+dependencies = [
+    "uagents",
+    "anthropic",
+    "redisvl",
+    "redis",
+    "sentence-transformers",
+    "pandas",
+    "fastapi",
+    "uvicorn",
+    "python-dotenv",
+    "httpx",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
