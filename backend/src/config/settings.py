@@ -34,6 +34,9 @@ IMPLICIT_INDEX: str = "implicit_signals"
 # ── Agent Configuration ──────────────────────────────────────────────────
 
 # Agent seed phrases (deterministic address generation)
+CONTEXT_SENTINEL_SEED: str = os.getenv(
+    "CONTEXT_SENTINEL_SEED", "rewind-context-sentinel-seed-v1"
+)
 DISRUPTION_DETECTOR_SEED: str = os.getenv(
     "DISRUPTION_DETECTOR_SEED", "rewind-disruption-detector-seed-v1"
 )
@@ -45,6 +48,7 @@ ENERGY_MONITOR_SEED: str = os.getenv(
 )
 
 # Agent addresses (auto-generated from seeds, override for production)
+DISRUPTION_DETECTOR_ADDRESS: str = os.getenv("DISRUPTION_DETECTOR_ADDRESS", "")
 SCHEDULER_KERNEL_ADDRESS: str = os.getenv("SCHEDULER_KERNEL_ADDRESS", "")
 PROFILER_AGENT_ADDRESS: str = os.getenv("PROFILER_AGENT_ADDRESS", "")
 ENERGY_MONITOR_ADDRESS: str = os.getenv("ENERGY_MONITOR_ADDRESS", "")
@@ -53,6 +57,22 @@ ENERGY_MONITOR_ADDRESS: str = os.getenv("ENERGY_MONITOR_ADDRESS", "")
 TASK_BUCKET_COUNT: int = int(os.getenv("TASK_BUCKET_COUNT", "16"))
 DEFAULT_AVAILABLE_HOURS: int = int(os.getenv("DEFAULT_AVAILABLE_HOURS", "8"))
 DEFAULT_ENERGY_LEVEL: int = int(os.getenv("DEFAULT_ENERGY_LEVEL", "3"))
+
+# ── Composio Configuration ──────────────────────────────────────────────
+
+COMPOSIO_API_KEY: str = os.getenv("COMPOSIO_API_KEY", "")
+COMPOSIO_USER_ID: str = os.getenv("USER_ID", "rewind-user-001")
+
+# Auth Config IDs for Composio tool groups (from Composio dashboard)
+GOOGLE_CALENDAR_AUTH_CONFIG_ID: str = os.getenv("GOOGLE_CALENDAR_AUTH_CONFIG_ID", "")
+GMAIL_AUTH_CONFIG_ID: str = os.getenv("GMAIL_AUTH_CONFIG_ID", "")
+SLACK_AUTH_CONFIG_ID: str = os.getenv("SLACK_AUTH_CONFIG_ID", "")
+
+# ── Context Sentinel Polling ────────────────────────────────────────────
+
+SENTINEL_POLL_INTERVAL: int = int(os.getenv("SENTINEL_POLL_INTERVAL", "60"))
+CALENDAR_LOOKAHEAD_HOURS: int = int(os.getenv("CALENDAR_LOOKAHEAD_HOURS", "24"))
+GMAIL_LOOKBACK_HOURS: int = int(os.getenv("GMAIL_LOOKBACK_HOURS", "2"))
 
 # ── Server Configuration ─────────────────────────────────────────────────
 
