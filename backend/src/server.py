@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -350,14 +351,18 @@ class EnergyUpdateRequest(BaseModel):
 
 @app.post("/api/energy")
 async def update_energy(req: EnergyUpdateRequest):
-    """Update the current energy level."""
+    """Update the current energy level.
+
+    Writes user-reported energy to Redis where the Energy Monitor agent
+    picks it up as a high-confidence override signal.
+    """
     global _energy_level
     _energy_level = max(1, min(5, req.level))
 
-    # Record user-reported energy for the Energy Monitor agent
-    from src.agents.energy_monitor import record_user_reported
+    # Write to Redis so the Energy Monitor agent reads it as user-reported
     r = _get_redis()
-    record_user_reported(_energy_level, r)
+    r.set("energy:user_reported", str(_energy_level))
+    r.set("energy:user_reported_ts", str(time.time()))
 
     # Auto-delegate P3 if energy critically low
     delegated = []
@@ -379,15 +384,18 @@ async def update_energy(req: EnergyUpdateRequest):
 
 @app.get("/api/energy/status")
 async def get_energy_status():
-    """Get current inferred energy level from Energy Monitor."""
-    from src.agents.energy_monitor import compute_energy
+    """Read current energy level from the Energy Monitor agent's Redis cache.
+
+    The Energy Monitor agent is the authoritative source — it computes
+    energy periodically and on every query/completion, caching the result
+    at the 'energy:current' key. This endpoint simply reads that cache.
+    """
     r = _get_redis()
-    energy = compute_energy(r)
-    return {
-        "level": energy.level,
-        "confidence": energy.confidence,
-        "source": energy.source,
-    }
+    cached = r.get("energy:current")
+    if cached:
+        return json.loads(cached)
+    # Fallback if agent hasn't run yet
+    return {"level": _energy_level, "confidence": 0.3, "source": "fallback"}
 
 
 @app.get("/api/backlog")

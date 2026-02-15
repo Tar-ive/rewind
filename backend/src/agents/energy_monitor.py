@@ -8,10 +8,15 @@ Three signal sources:
 1. Time-of-day heuristic (circadian baseline)
 2. Task velocity tracking (completion speed vs. estimates)
 3. User-reported energy (high-confidence override, decays over 2h)
+
+The agent is the authoritative source for energy data. It caches its
+latest computed energy in Redis so the server and other agents can read
+it without bypassing agent protocols.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -46,6 +51,7 @@ DEFAULT_ENERGY_CURVE: list[int] = [
 COMPLETIONS_KEY = "energy:completions"
 USER_REPORTED_KEY = "energy:user_reported"
 USER_REPORTED_TS_KEY = "energy:user_reported_ts"
+CACHED_ENERGY_KEY = "energy:current"
 
 # Velocity window: only consider completions from the last 2 hours
 VELOCITY_WINDOW_SECONDS = 2 * 60 * 60
@@ -55,6 +61,9 @@ USER_REPORTED_DECAY_SECONDS = 2 * 60 * 60
 
 # If no completions in this many seconds, assume energy dip
 INACTIVITY_THRESHOLD_SECONDS = 30 * 60
+
+# Periodic recomputation interval (seconds)
+RECOMPUTE_INTERVAL_SECONDS = 5 * 60
 
 
 # ── Agent Setup ──────────────────────────────────────────────────────────
@@ -107,8 +116,8 @@ def _get_velocity_adjustment(r: redis.Redis) -> tuple[int, int]:
         return 0, 0
 
     # Parse completions: "task_id:actual_minutes:estimated_minutes"
-    total_actual = 0
-    total_estimated = 0
+    total_actual = 0.0
+    total_estimated = 0.0
     count = 0
 
     for entry in entries:
@@ -157,9 +166,8 @@ def _get_user_reported(r: redis.Redis) -> tuple[int | None, float]:
     return int(reported), age
 
 
-def compute_energy(r: redis.Redis | None = None) -> EnergyLevel:
+def _compute_energy(r: redis.Redis) -> EnergyLevel:
     """Compute current energy level from all signal sources."""
-    r = r or _get_redis()
     now = datetime.now(timezone.utc)
     hour = now.hour
 
@@ -203,14 +211,23 @@ def compute_energy(r: redis.Redis | None = None) -> EnergyLevel:
     )
 
 
-def record_completion(
+def _cache_energy(energy: EnergyLevel, r: redis.Redis) -> None:
+    """Cache the latest computed energy in Redis for other services to read."""
+    r.set(CACHED_ENERGY_KEY, json.dumps({
+        "level": energy.level,
+        "confidence": energy.confidence,
+        "source": energy.source,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }))
+
+
+def _record_completion(
     task_id: str,
     actual_minutes: float,
     estimated_minutes: float,
-    r: redis.Redis | None = None,
+    r: redis.Redis,
 ) -> None:
     """Record a task completion for velocity tracking."""
-    r = r or _get_redis()
     now = time.time()
     entry = f"{task_id}:{actual_minutes}:{estimated_minutes}"
     r.zadd(COMPLETIONS_KEY, {entry: now})
@@ -220,20 +237,14 @@ def record_completion(
     r.zremrangebyscore(COMPLETIONS_KEY, "-inf", cutoff)
 
 
-def record_user_reported(level: int, r: redis.Redis | None = None) -> None:
-    """Record a user-reported energy level."""
-    r = r or _get_redis()
-    r.set(USER_REPORTED_KEY, str(max(1, min(5, level))))
-    r.set(USER_REPORTED_TS_KEY, str(time.time()))
-
-
 # ── Message Handlers ─────────────────────────────────────────────────────
 
 @agent.on_message(EnergyQuery)
-async def handle_energy_query(ctx: Context, sender: str, query: EnergyQuery):
-    """Compute and return current energy level."""
+async def handle_energy_query(ctx: Context, sender: str, msg: EnergyQuery):
+    """Compute and return current energy level to the requesting agent."""
     r = _get_redis()
-    energy = compute_energy(r)
+    energy = _compute_energy(r)
+    _cache_energy(energy, r)
     logger.info(
         f"EnergyQuery from {sender}: level={energy.level}, "
         f"confidence={energy.confidence}, source={energy.source}"
@@ -242,47 +253,78 @@ async def handle_energy_query(ctx: Context, sender: str, query: EnergyQuery):
 
 
 @agent.on_message(TaskCompletion)
-async def handle_task_completion(ctx: Context, sender: str, completion: TaskCompletion):
-    """Record task completion for velocity tracking."""
-    if completion.status != "executed":
+async def handle_task_completion(ctx: Context, sender: str, msg: TaskCompletion):
+    """Record task completion for velocity tracking and recompute energy."""
+    if msg.status != "executed":
         return
 
-    actual = completion.result.get("actual_minutes", 0)
-    estimated = completion.result.get("estimated_minutes", 0)
+    actual = msg.result.get("actual_minutes", 0)
+    estimated = msg.result.get("estimated_minutes", 0)
 
     if actual > 0 and estimated > 0:
         r = _get_redis()
-        record_completion(completion.task_id, actual, estimated, r)
+        _record_completion(msg.task_id, actual, estimated, r)
         logger.info(
-            f"Recorded completion: {completion.task_id} "
+            f"Recorded completion: {msg.task_id} "
             f"({actual}min actual vs {estimated}min estimated)"
         )
 
+        # Recompute and cache after new data
+        energy = _compute_energy(r)
+        _cache_energy(energy, r)
+        logger.info(f"Energy recomputed after completion: {energy.level}/5")
+
 
 @agent.on_message(UserProfile)
-async def handle_profile_update(ctx: Context, sender: str, profile: UserProfile):
-    """Cache the energy curve from Profiler Agent."""
+async def handle_profile_update(ctx: Context, sender: str, msg: UserProfile):
+    """Cache the energy curve from Profiler Agent and recompute."""
     global _energy_curve, _has_profiler_curve
-    if profile.energy_curve and len(profile.energy_curve) == 24:
-        _energy_curve = list(profile.energy_curve)
+    if msg.energy_curve and len(msg.energy_curve) == 24:
+        _energy_curve = list(msg.energy_curve)
         _has_profiler_curve = True
         logger.info("Updated energy curve from Profiler Agent")
+
+        # Recompute with new curve
+        r = _get_redis()
+        energy = _compute_energy(r)
+        _cache_energy(energy, r)
+
+
+# ── Periodic Recomputation ───────────────────────────────────────────────
+
+@agent.on_interval(period=RECOMPUTE_INTERVAL_SECONDS)
+async def periodic_recompute(ctx: Context):
+    """Periodically recompute energy and cache it in Redis.
+
+    This ensures the cached energy stays fresh even when no queries arrive,
+    so the server and other agents always have a recent value.
+    """
+    r = _get_redis()
+    energy = _compute_energy(r)
+    _cache_energy(energy, r)
+    logger.debug(f"Periodic energy update: {energy.level}/5 ({energy.source})")
 
 
 # ── Startup ──────────────────────────────────────────────────────────────
 
 @agent.on_event("startup")
 async def on_startup(ctx: Context):
-    """Log agent startup."""
+    """Initialize: compute initial energy and cache it."""
     logger.info(f"Energy Monitor started. Address: {agent.address}")
     logger.info(f"Using {'profiler' if _has_profiler_curve else 'default'} energy curve")
+
+    # Seed the cache so it's available immediately
+    r = _get_redis()
+    energy = _compute_energy(r)
+    _cache_energy(energy, r)
+    logger.info(f"Initial energy: {energy.level}/5 ({energy.source})")
 
 
 # ── Chat Protocol for ASI:One ────────────────────────────────────────────
 
 async def _chat_handler(ctx: Context, sender: str, text: str) -> str:
     r = _get_redis()
-    energy = compute_energy(r)
+    energy = _compute_energy(r)
     velocity_adj, count = _get_velocity_adjustment(r)
 
     adj_desc = ""
