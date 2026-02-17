@@ -1,0 +1,19 @@
+{
+  "name": "rewind-finance",
+  "version": "0.1.0",
+  "description": "Composio-powered finance watcher: Google Sheets → FinanceRecords → goal-tagged tasks with quota tracking",
+  "main": "src/index.js",
+  "bin": {
+    "rewind-finance": "src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test tests/",
+    "sync": "node src/cli.js sync",
+    "status": "node src/cli.js status"
+  },
+  "keywords": ["rewind", "composio", "finance", "scheduler"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
