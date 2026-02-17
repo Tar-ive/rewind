@@ -1,5 +1,5 @@
 /**
- * Composio adapter — fetches Google Sheets rows via Composio REST API,
+ * Composio adapter — fetches Google Sheets rows via Composio v3 REST API,
  * falls back to cached CSV when API key is missing or quota exhausted.
  *
  * Deterministic: no LLM calls. Uses category-rules for tagging.
@@ -11,7 +11,7 @@ const { categorize } = require('./category-rules');
 const { QuotaTracker } = require('./quota-tracker');
 
 const CACHE_PATH = path.join(__dirname, '..', 'finance', 'cache-sheet.csv');
-const COMPOSIO_BASE = 'https://backend.composio.dev/api/v2';
+const COMPOSIO_BASE = 'https://backend.composio.dev/api/v3';
 
 class ComposioAdapter {
   /**
@@ -57,10 +57,8 @@ class ComposioAdapter {
     try {
       let rows;
       if (this.fetchFn) {
-        // Injected mock for testing
         rows = await this.fetchFn(this.apiKey, this.sheetId);
       } else {
-        // Real Composio API call
         rows = await this._composioFetch();
       }
       this.quota.increment(1);
@@ -75,19 +73,22 @@ class ComposioAdapter {
   }
 
   /**
-   * Look up the connected Google Sheets account ID from Composio.
+   * Look up the connected Google Sheets account ID from Composio v3.
    */
   async _getConnectedAccountId() {
-    const url = `${COMPOSIO_BASE}/connectedAccounts?appNames=googlesheets&status=ACTIVE`;
+    // v3 endpoint for connected accounts
+    const url = `${COMPOSIO_BASE}/connectedAccounts?toolkitSlug=googlesheets&status=ACTIVE`;
+    console.log(`[composio-adapter] Listing connected accounts...`);
     const resp = await fetch(url, {
       headers: { 'x-api-key': this.apiKey },
     });
     if (!resp.ok) {
       const text = await resp.text();
-      throw new Error(`Failed to list connected accounts: ${resp.status} ${text}`);
+      throw new Error(`Failed to list connected accounts (${resp.status}): ${text}`);
     }
     const data = await resp.json();
-    const items = data.items || data.connectedAccounts || data.data || [];
+    // v3 may return { items: [...] } or { data: [...] } or top-level array
+    const items = data.items || data.data || data.connectedAccounts || (Array.isArray(data) ? data : []);
     if (items.length === 0) {
       throw new Error('No active Google Sheets connected account found in Composio. Connect one at https://app.composio.dev');
     }
@@ -97,13 +98,13 @@ class ComposioAdapter {
   }
 
   /**
-   * Hit Composio REST API to execute GOOGLESHEETS_BATCH_GET action.
-   * Returns array of row objects with keys: date, description, amount, account
+   * Hit Composio v3 REST API to execute GOOGLESHEETS_BATCH_GET action.
+   * v3 endpoint: POST /api/v3/tools/execute/{action}
    */
   async _composioFetch() {
     const connectedAccountId = await this._getConnectedAccountId();
     const actionName = 'GOOGLESHEETS_BATCH_GET';
-    const url = `${COMPOSIO_BASE}/actions/${actionName}/execute`;
+    const url = `${COMPOSIO_BASE}/tools/execute/${actionName}`;
 
     const body = {
       connectedAccountId,
@@ -111,10 +112,9 @@ class ComposioAdapter {
         spreadsheet_id: this.sheetId,
         ranges: process.env.GOOGLE_SHEET_NAME || 'Sheet1',
       },
-      entityId: 'default',
     };
 
-    console.log(`[composio-adapter] Calling Composio: ${actionName} for sheet ${this.sheetId}`);
+    console.log(`[composio-adapter] Executing: ${actionName} for sheet ${this.sheetId}`);
 
     const resp = await fetch(url, {
       method: 'POST',
@@ -131,8 +131,6 @@ class ComposioAdapter {
     }
 
     const data = await resp.json();
-
-    // Parse the response — Composio returns valueRanges with 2D arrays
     return this._parseSheetResponse(data);
   }
 
@@ -141,35 +139,41 @@ class ComposioAdapter {
    * Handles multiple response shapes from the API.
    */
   _parseSheetResponse(data) {
-    // The response structure can vary; try common paths
     let values = null;
 
-    // Direct values array
-    if (data.response_data?.values) {
-      values = data.response_data.values;
-    }
-    // Nested in valueRanges
-    else if (data.response_data?.valueRanges?.[0]?.values) {
-      values = data.response_data.valueRanges[0].values;
-    }
-    // Data might be at top level
-    else if (data.data?.values) {
-      values = data.data.values;
-    }
-    // Flat data object with successfull key (Composio spelling)
-    else if (data.successfull !== undefined && data.data) {
-      if (Array.isArray(data.data)) {
-        values = data.data;
-      } else if (data.data.valueRanges?.[0]?.values) {
-        values = data.data.valueRanges[0].values;
-      } else if (data.data.values) {
-        values = data.data.values;
+    // Try all known response shapes
+    const candidates = [
+      data.response_data?.values,
+      data.response_data?.valueRanges?.[0]?.values,
+      data.data?.values,
+      data.data?.valueRanges?.[0]?.values,
+      data.result?.values,
+      data.result?.valueRanges?.[0]?.values,
+    ];
+
+    // Also check if data.data or data.successfull wrapping exists
+    if (data.successfull !== undefined || data.successful !== undefined) {
+      const inner = data.data || data.response_data || data.result;
+      if (inner) {
+        candidates.push(inner.values);
+        candidates.push(inner.valueRanges?.[0]?.values);
+        if (Array.isArray(inner)) candidates.push(inner);
       }
     }
 
-    if (!values || values.length < 2) {
-      console.log('[composio-adapter] Response structure:', JSON.stringify(data).slice(0, 500));
-      throw new Error('Could not parse sheet data from Composio response. Check GOOGLE_SHEET_ID and sheet format.');
+    for (const c of candidates) {
+      if (Array.isArray(c) && c.length >= 2) {
+        values = c;
+        break;
+      }
+    }
+
+    if (!values) {
+      // Log the response structure for debugging
+      console.log('[composio-adapter] Response keys:', Object.keys(data));
+      if (data.data) console.log('[composio-adapter] data keys:', Object.keys(data.data));
+      console.log('[composio-adapter] Full response (first 1000 chars):', JSON.stringify(data).slice(0, 1000));
+      throw new Error('Could not parse sheet data from Composio response. Check GOOGLE_SHEET_ID and sheet format (expected columns: date, description, amount, account).');
     }
 
     // First row = headers, rest = data
@@ -203,10 +207,6 @@ class ComposioAdapter {
     });
   }
 
-  /**
-   * Convert a raw sheet row → FinanceRecord with deterministic tagging.
-   * Expected columns: date, description, amount, account
-   */
   _rowToRecord(row, idx) {
     const desc = row.description || row.Description || '';
     const { category, goalTag, goalName } = categorize(desc);
