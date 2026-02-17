@@ -25,14 +25,22 @@ Build a Rust-native variant of Rewind (`rewind-cli`) that runs alongside Claude 
    - Cheap LLM use is limited to summary sentences when profiling needs narration; otherwise, the profiler operates purely on numeric heuristics.
 
 ## Finance planning + Composio integration
-- **Data flow**: Composio pulls Google Sheets rows. The CLI ingests them, categorizes by account (Chase, AMEX, Zelle, etc.), and stores them as `FinanceRecord`s. Deterministic filters handle category matching; no LLM required.
-- **Task generation**: Each row triggers Rewind tasks tagged with goal types (long-term finance control, medium-term conversions, short-term payments). The profiler tags these tasks with `financial_focus` so STS/MTS schedule them appropriately.
-- **Automation**: When totals exceed thresholds, the system constructs reminder copy (via cheap LLM) and routes it through the WhatsApp automation (reuse the OpenClaw `message` pattern). However, budget calculations and alert triggers remain deterministic.
-
+- **Data flow**: Composio (Google Sheets integration) is optional but highly recommended. The CLI first checks for a configured `COMPOSIO_API_KEY`. If missing it falls back to a cached export (`finance/cache-sheet.csv`) or creates a lightweight reminder task reminding you to wire the integration. When configured, the CLI downloads rows, tags them by account (Chase, AMEX, Zelle, etc.), and stores them as `FinanceRecord`s. Deterministic filters handle category matching; no LLM is needed for parsing.
+- **Quota management**: Track Composio quota by incrementing a usage counter stored in Redis/SQLite (`quota/composio.json`) each time the Sheets poll runs. Compare against `COMPOSIO_MONTHLY_LIMIT` (default 10,000). When usage exceeds 80%, the system temporarily increases the poll interval, routes future checks to cached/manual files, and sends a WhatsApp alert describing the throttle. Every quota change appends to `logs/composio_quota.log`.
+- **Task generation**: Each row creates Rewind tasks tagged for the appropriate goal (long-term finance control, medium-term conversions, short-term bills). The profiler tags the task with `financial_focus`, and the scheduler uses that metric when weighting backlog entries.
+- **Automation**: When totals breach thresholds or bills approach, the watcher crafts reminder copy (via the configured `CHEAP_LLM`) and routes it through WhatsApp/Slack autopilot, while all calculations and trigger decisions remain deterministic.
 ## Reminders + WhatsApp
 - The CLI reuses the same WhatsApp integration patterns as OpenClaw/ZeroClaw: an automation watcher runs diagnostics, forms a structured status update, and sends via WhatsApp API (with webhook handling). Each reminder job logs its cron/webhook status (recorded in Redis + git commit message) and caches webhook IDs for rollback.
 - Routine reminder text (e.g., next task) uses the cheap LLM configured by `CHEAP_LLM`; only when the reminder requires creative reasoning (e.g., summarizing a new finance row) does it call the Claude Agents system.
 
+## Testing & Validation
+- Mirror ZeroClaw quality patterns (see https://github.com/zeroclaw-labs/zeroclaw/commits/main/ and `tests/feature` there).
+  - Run `cargo test` plus the specific scheduler tests (`rewind-core::lts`, `rewind-core::sts`) before every commit; failing tests block the gate.
+  - Run `cargo fmt`, `cargo clippy -- -D warnings`, and `cargo test --all` to ensure clean lint output similar to ZeroClaw’s CI.
+  - Add doc/link checks by reading `docs/architecture.svg` updates and verifying the README cross references your scheduler/profiler APIs.
+- For Composio logic: write unit tests mocking the Google Sheets payload, verifying filters and quota rules. Add an integration test that spins up Redis + a fake CSV store (no network) to confirm the fallback path when `COMPOSIO_API_KEY` is missing.
+- Slack/WhatsApp automations should have smoke tests emulating the message payload. If the webhook config is missing, the test should assert the automation queues the reminder in Redis and logs the failure, then retries once the hook exists.
+- Scheduler tests should exercise deterministic filters (stable IDs, energy-based demotions) and fallback to cheap LLMs only when the test injects `requires_narration = true`.
 ## Rollback / monitoring policy
 - Every webhook status change, cron trigger, or automation update appends a record to `/workspace/logs/cron-history.log`. Use the `gh` CLI workflow to commit these logs after each batch.
 - The memory entry about rollback workflows lives under `memory/2026-02-17.md` and is referenced by the nightly drift audit. Keep this as the “source of truth” for rollbacks.
