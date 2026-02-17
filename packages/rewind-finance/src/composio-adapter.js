@@ -75,26 +75,44 @@ class ComposioAdapter {
   }
 
   /**
+   * Look up the connected Google Sheets account ID from Composio.
+   */
+  async _getConnectedAccountId() {
+    const url = `${COMPOSIO_BASE}/connectedAccounts?appNames=googlesheets&status=ACTIVE`;
+    const resp = await fetch(url, {
+      headers: { 'x-api-key': this.apiKey },
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Failed to list connected accounts: ${resp.status} ${text}`);
+    }
+    const data = await resp.json();
+    const items = data.items || data.connectedAccounts || data.data || [];
+    if (items.length === 0) {
+      throw new Error('No active Google Sheets connected account found in Composio. Connect one at https://app.composio.dev');
+    }
+    const id = items[0].id;
+    console.log(`[composio-adapter] Using connected account: ${id}`);
+    return id;
+  }
+
+  /**
    * Hit Composio REST API to execute GOOGLESHEETS_BATCH_GET action.
    * Returns array of row objects with keys: date, description, amount, account
    */
   async _composioFetch() {
-    // Step 1: Try to get sheet data via Composio's action execution endpoint
+    const connectedAccountId = await this._getConnectedAccountId();
     const actionName = 'GOOGLESHEETS_BATCH_GET';
     const url = `${COMPOSIO_BASE}/actions/${actionName}/execute`;
 
     const body = {
-      connectedAccountId: 'default',
+      connectedAccountId,
       input: {
         spreadsheet_id: this.sheetId,
-        ranges: 'Sheet1',  // default sheet name; override via GOOGLE_SHEET_NAME env
+        ranges: process.env.GOOGLE_SHEET_NAME || 'Sheet1',
       },
       entityId: 'default',
     };
-
-    if (process.env.GOOGLE_SHEET_NAME) {
-      body.input.ranges = process.env.GOOGLE_SHEET_NAME;
-    }
 
     console.log(`[composio-adapter] Calling Composio: ${actionName} for sheet ${this.sheetId}`);
 
