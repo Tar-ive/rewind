@@ -1,5 +1,5 @@
 /**
- * Composio adapter — fetches Google Sheets rows via Composio API,
+ * Composio adapter — fetches Google Sheets rows via Composio REST API,
  * falls back to cached CSV when API key is missing or quota exhausted.
  *
  * Deterministic: no LLM calls. Uses category-rules for tagging.
@@ -11,6 +11,7 @@ const { categorize } = require('./category-rules');
 const { QuotaTracker } = require('./quota-tracker');
 
 const CACHE_PATH = path.join(__dirname, '..', 'finance', 'cache-sheet.csv');
+const COMPOSIO_BASE = 'https://backend.composio.dev/api/v2';
 
 class ComposioAdapter {
   /**
@@ -19,14 +20,14 @@ class ComposioAdapter {
    * @param {string} opts.sheetId      - GOOGLE_SHEET_ID
    * @param {string} opts.cachePath    - fallback CSV path
    * @param {QuotaTracker} opts.quota
-   * @param {function} opts.fetchFn    - injectable fetch (for testing)
+   * @param {function} opts.fetchFn    - injectable fetch override (for testing)
    */
   constructor(opts = {}) {
     this.apiKey = opts.apiKey || process.env.COMPOSIO_API_KEY || '';
     this.sheetId = opts.sheetId || process.env.GOOGLE_SHEET_ID || '';
     this.cachePath = opts.cachePath || CACHE_PATH;
     this.quota = opts.quota || new QuotaTracker();
-    this.fetchFn = opts.fetchFn || null; // injected for tests
+    this.fetchFn = opts.fetchFn || null;
   }
 
   /** True when we can hit the Composio API */
@@ -41,27 +42,131 @@ class ComposioAdapter {
    * @returns {Promise<FinanceRecord[]>}
    */
   async fetchRecords() {
-    if (this.canUseLive() && this.fetchFn) {
+    if (this.canUseLive()) {
       return this._fetchLive();
     }
-    if (this.canUseLive() && !this.fetchFn) {
-      // Real Composio HTTP call — we'll implement once we test with mocks
-      console.log('[composio-adapter] Live Composio call not yet wired; using cache.');
+    if (!this.apiKey) {
+      console.log('[composio-adapter] No COMPOSIO_API_KEY set; using cache.');
+    } else {
+      console.log('[composio-adapter] Quota exhausted/throttled; using cache.');
     }
     return this._fetchFromCache();
   }
 
   async _fetchLive() {
     try {
-      const rows = await this.fetchFn(this.apiKey, this.sheetId);
+      let rows;
+      if (this.fetchFn) {
+        // Injected mock for testing
+        rows = await this.fetchFn(this.apiKey, this.sheetId);
+      } else {
+        // Real Composio API call
+        rows = await this._composioFetch();
+      }
       this.quota.increment(1);
       const records = rows.map((row, i) => this._rowToRecord(row, i));
       this._writeCache(records);
+      console.log(`[composio-adapter] Live fetch: ${records.length} records from Composio`);
       return records;
     } catch (err) {
       console.error('[composio-adapter] Live fetch failed, falling back to cache:', err.message);
       return this._fetchFromCache();
     }
+  }
+
+  /**
+   * Hit Composio REST API to execute GOOGLESHEETS_BATCH_GET action.
+   * Returns array of row objects with keys: date, description, amount, account
+   */
+  async _composioFetch() {
+    // Step 1: Try to get sheet data via Composio's action execution endpoint
+    const actionName = 'GOOGLESHEETS_BATCH_GET';
+    const url = `${COMPOSIO_BASE}/actions/${actionName}/execute`;
+
+    const body = {
+      connectedAccountId: 'default',
+      input: {
+        spreadsheet_id: this.sheetId,
+        ranges: 'Sheet1',  // default sheet name; override via GOOGLE_SHEET_NAME env
+      },
+      entityId: 'default',
+    };
+
+    if (process.env.GOOGLE_SHEET_NAME) {
+      body.input.ranges = process.env.GOOGLE_SHEET_NAME;
+    }
+
+    console.log(`[composio-adapter] Calling Composio: ${actionName} for sheet ${this.sheetId}`);
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Composio API ${resp.status}: ${text}`);
+    }
+
+    const data = await resp.json();
+
+    // Parse the response — Composio returns valueRanges with 2D arrays
+    return this._parseSheetResponse(data);
+  }
+
+  /**
+   * Parse Composio's Google Sheets response into row objects.
+   * Handles multiple response shapes from the API.
+   */
+  _parseSheetResponse(data) {
+    // The response structure can vary; try common paths
+    let values = null;
+
+    // Direct values array
+    if (data.response_data?.values) {
+      values = data.response_data.values;
+    }
+    // Nested in valueRanges
+    else if (data.response_data?.valueRanges?.[0]?.values) {
+      values = data.response_data.valueRanges[0].values;
+    }
+    // Data might be at top level
+    else if (data.data?.values) {
+      values = data.data.values;
+    }
+    // Flat data object with successfull key (Composio spelling)
+    else if (data.successfull !== undefined && data.data) {
+      if (Array.isArray(data.data)) {
+        values = data.data;
+      } else if (data.data.valueRanges?.[0]?.values) {
+        values = data.data.valueRanges[0].values;
+      } else if (data.data.values) {
+        values = data.data.values;
+      }
+    }
+
+    if (!values || values.length < 2) {
+      console.log('[composio-adapter] Response structure:', JSON.stringify(data).slice(0, 500));
+      throw new Error('Could not parse sheet data from Composio response. Check GOOGLE_SHEET_ID and sheet format.');
+    }
+
+    // First row = headers, rest = data
+    const headers = values[0].map(h => h.toString().trim().toLowerCase());
+    const rows = [];
+
+    for (let i = 1; i < values.length; i++) {
+      const row = {};
+      headers.forEach((h, idx) => {
+        row[h] = (values[i][idx] || '').toString().trim();
+      });
+      rows.push(row);
+    }
+
+    return rows;
   }
 
   _fetchFromCache() {
