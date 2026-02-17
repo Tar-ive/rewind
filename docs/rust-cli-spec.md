@@ -2,7 +2,7 @@
 
 ## Vision
 Build a Rust-native variant of Rewind (`rewind-cli`) that runs alongside Claude agents by leveraging the `claude-agents` SDK and `claude setup-token` for authentication. The CLI must:
-- Be compact (<5 MB binary) and deterministic where possible (cache stable IDs, use deterministic filters, skip LLMs when logic suffices).
+- Be compact (<5 MB binary) and deterministic where possible (cache stable IDs, use deterministic filters, skip LLMs when logic suffices). Reserach on other robust Rust CLI code mainly https://github.com/zeroclaw-labs/zeroclaw.git to understand structuring, key details, compilation, 
 - Route only routine text generation to a cheap LLM (configured via `CHEAP_LLM`), while heavier reasoning still uses the Claude Agents workflow.
 - Automate finance planning (Composio → Google Sheets) and reminders (Claude + WhatsApp) while tracking webhook/cron states.
 - Treat rollback as first-class: log rollback points in memory/TOOLS, track cron/webhook statuses, and commit every change with the `gh` CLI workflow.
