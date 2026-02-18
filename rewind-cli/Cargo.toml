@@ -1,0 +1,14 @@
+[package]
+name = "rewind-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "rewind"
+path = "src/main.rs"
+
+[dependencies]
+rewind-core = { path = "../rewind-core" }
+rewind-finance = { path = "../rewind-finance" }
+anyhow = { workspace = true }
+tokio = { workspace = true }

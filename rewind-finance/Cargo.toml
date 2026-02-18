@@ -1,0 +1,13 @@
+[package]
+name = "rewind-finance"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rewind-core = { path = "../rewind-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
