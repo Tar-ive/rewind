@@ -29,9 +29,10 @@ Build a Rust-native CLI (`rewind-cli`) that:
 - [ ] Commit + push
 
 ### Phase 3: CLI Entry Point
-- [ ] Create `rewind-cli` binary crate
-- [ ] Subcommands: `sync`, `status`, `cache`, `configure`, `plan-day`
-- [ ] Wire finance watcher + goal planner into CLI
+- [x] Create `rewind-cli` binary crate
+- [x] Subcommands: `finance sync` (AMEX CSV) + `auth` helpers
+- [x] Wire finance parser + task emitter into CLI (`rewind finance sync --csv amex.csv`)
+- [ ] Add `status` / `cache` / `configure` / `plan-day`
 - [ ] Commit + push
 
 ### Phase 4: Claude Auth (`setup-token`)

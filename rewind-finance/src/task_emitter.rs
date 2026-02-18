@@ -4,7 +4,6 @@
 use rewind_core::finance::{Category, GoalTag, FinanceRecord};
 use crate::amex_parser::AmexTransaction;
 use crate::category_rules::{categorize, Categorized};
-use chrono::NaiveDate;
 use std::collections::HashMap;
 
 /// A task generated from financial data

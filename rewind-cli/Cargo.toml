@@ -12,3 +12,4 @@ rewind-core = { path = "../rewind-core" }
 rewind-finance = { path = "../rewind-finance" }
 anyhow = { workspace = true }
 tokio = { workspace = true }
+clap = { workspace = true }
