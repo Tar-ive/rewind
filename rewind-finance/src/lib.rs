@@ -1,2 +1,9 @@
-//! rewind-finance: Composio adapter, quota tracker, and task emitter
-//! (To be implemented in Phase 2)
+//! rewind-finance: AMEX CSV parser, category rules, quota tracker, and task emitter
+
+pub mod amex_parser;
+pub mod category_rules;
+pub mod task_emitter;
+
+pub use amex_parser::AmexTransaction;
+pub use category_rules::categorize;
+pub use task_emitter::TaskEmitter;

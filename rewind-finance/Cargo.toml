@@ -11,3 +11,5 @@ tokio = { workspace = true }
 reqwest = { workspace = true }
 chrono = { workspace = true }
 anyhow = { workspace = true }
+csv = { workspace = true }
+regex = { workspace = true }

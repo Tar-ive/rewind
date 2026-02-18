@@ -1,2 +1,8 @@
 target/
 target/
+.venv_test/
+__pycache__/
+packages/rewind-finance/.env
+packages/rewind-finance/logs/
+packages/rewind-finance/quota/
+target/
