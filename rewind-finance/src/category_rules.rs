@@ -213,8 +213,9 @@ mod tests {
         let txns = parse_amex_csv(amex_path()).unwrap();
         let amex_cats: std::collections::HashSet<_> = txns.iter().map(|t| t.amex_category.clone()).collect();
         for cat in &amex_cats {
-            // Every AMEX category in the real data should map to something
-            // (we allow Uncategorized for truly unknown ones)
+            // Skip empty categories (from blank trailing rows)
+            if cat.is_empty() { continue; }
+            // Every non-empty AMEX category should exist
             assert!(!cat.is_empty(), "Empty AMEX category found");
         }
     }

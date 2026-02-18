@@ -137,6 +137,7 @@ mod tests {
 
     #[test]
     fn test_date_range() {
+        use chrono::Datelike;
         let txns = parse_amex_csv(amex_path()).unwrap();
         let min = txns.iter().map(|t| t.date).min().unwrap();
         let max = txns.iter().map(|t| t.date).max().unwrap();
