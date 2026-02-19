@@ -11,6 +11,33 @@ fn prompt(label: &str) -> Result<String> {
     Ok(s.trim().to_string())
 }
 
+fn prompt_timezone() -> Result<String> {
+    use chrono_tz::Tz;
+
+    // For Tarive/Saksham: default to CST (America/Chicago) if empty.
+    // For OSS users: keep prompting until valid.
+    // If REWIND_TZ is set, use it as an override.
+    if let Ok(tz) = std::env::var("REWIND_TZ") {
+        let _parsed: Tz = tz
+            .parse()
+            .map_err(|_| anyhow::anyhow!("Invalid REWIND_TZ: {tz}"))?;
+        return Ok(tz);
+    }
+
+    loop {
+        let tz = prompt("Your timezone (IANA, e.g. America/Chicago) [required]")?;
+        let tz = tz.trim().to_string();
+        if tz.is_empty() {
+            // Default for you. OSS users can just type their timezone.
+            return Ok("America/Chicago".to_string());
+        }
+        if tz.parse::<Tz>().is_ok() {
+            return Ok(tz);
+        }
+        println!("Timezone not recognized. Example: America/Chicago, America/Los_Angeles, Europe/London");
+    }
+}
+
 fn prompt_multiline(label: &str) -> Result<Vec<String>> {
     println!("{} (enter one per line; blank line to finish)", label);
     let mut out = Vec::new();
@@ -31,7 +58,7 @@ fn prompt_multiline(label: &str) -> Result<Vec<String>> {
 pub fn run_setup() -> Result<()> {
     println!("Rewind setup\n");
     let name = prompt("Your name (optional)")?;
-    let timezone = prompt("Your timezone (IANA, e.g. America/Chicago)")?;
+    let timezone = prompt_timezone()?;
 
     let long = prompt_multiline("LONG-TERM goals")?;
     let medium = prompt_multiline("MEDIUM-TERM goals")?;
