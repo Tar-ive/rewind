@@ -10,6 +10,7 @@ path = "src/main.rs"
 [dependencies]
 rewind-core = { path = "../rewind-core" }
 rewind-finance = { path = "../rewind-finance" }
+rewind-ingest = { path = "../rewind-ingest" }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }

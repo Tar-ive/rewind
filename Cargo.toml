@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "rewind-core",
+    "rewind-ingest",
     "rewind-finance",
     "rewind-cli",
 ]

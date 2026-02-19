@@ -1,12 +1,12 @@
 # Rewind Rust CLI — Task Plan
 
 ## Goal
-Build a Rust-native CLI (`rewind-cli`) that:
-1. Plans financial long-term goals using the Rewind scheduling algorithm (LTS/MTS/STS)
-2. Reads transactions from Composio (Google Sheets) and categorizes them
-3. Emits goal-tagged tasks with urgency scoring
-4. Authenticates via `claude setup-token` (like OpenClaw does)
-5. Backs up daily memories to GitHub automatically
+Build a Rust-native scheduler + CLI (`rewind`) that:
+1. Captures **long-term goals** (initial setup wizard + WhatsApp capture later)
+2. Runs the **LTS/MTS/STS** scheduling algorithm against explicit goals + implicit signals
+3. Ingests statements (CSV now; PDF later, bank-specific)
+4. Uses **code routing** + optional LLM intent classification (Claude/OpenAI) for goal alignment
+5. Ships with a setup flow that a fresh GitHub clone can run
 
 ## Phases
 
@@ -20,12 +20,13 @@ Build a Rust-native CLI (`rewind-cli`) that:
 - [ ] Run `cargo test` on rewind-core — all tests pass
 - [ ] Commit + push
 
-### Phase 2: Finance Watcher (port from Node.js)
-- [ ] Create `rewind-finance` crate with `QuotaTracker`
-- [ ] Port `ComposioAdapter` (Composio v3 API: connected_accounts + BATCH_GET)
-- [ ] Port `TaskEmitter` (urgency scoring, groupByGoal, summarize)
-- [ ] Add `.env` file loading (dotenv crate)
-- [ ] Run `cargo test` on rewind-finance
+### Phase 2: Finance Watcher (statements + finance-only goals)
+- [x] AMEX CSV parsing + category rules + task emitter (real-data tests)
+- [x] `rewind finance sync --csv amex.csv`
+- [ ] Add statement-ingest abstraction (CSV + PDF text)
+- [ ] Implement Capital One US parser in Rust (ported from `capitalone_us.py`)
+- [ ] Add PDF text extraction strategy (crate choice + fallback)
+- [ ] Add Composio adapter (optional) later
 - [ ] Commit + push
 
 ### Phase 3: CLI Entry Point

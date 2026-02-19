@@ -1042,6 +1042,7 @@ dependencies = [
  "clap",
  "rewind-core",
  "rewind-finance",
+ "rewind-ingest",
  "tokio",
 ]
 
@@ -1068,6 +1069,16 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "rewind-ingest"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "regex",
+ "serde",
 ]
 
 [[package]]

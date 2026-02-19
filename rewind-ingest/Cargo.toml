@@ -1,0 +1,10 @@
+[package]
+name = "rewind-ingest"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
