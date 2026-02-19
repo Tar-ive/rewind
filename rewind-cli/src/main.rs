@@ -150,7 +150,19 @@ fn plan_day(csv: Option<PathBuf>, limit: usize) -> Result<()> {
 
     let goals_md = state::read_goals_md(&goals_path)?;
 
+    let profile = state::read_profile()?;
+
+    // Temporal context (OpenClaw-style: always anchor to 'now' + timezone)
+    let tz: chrono_tz::Tz = profile
+        .timezone
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid timezone in profile.json: {}", profile.timezone))?;
+    let now_utc = chrono::Utc::now();
+    let now_local = now_utc.with_timezone(&tz);
+
     println!("# Plan for today\n");
+    println!("Now: {} ({})", now_local.format("%Y-%m-%d %H:%M"), profile.timezone);
+    println!("Now (UTC): {}\n", now_utc.to_rfc3339());
     println!("Goals file: {}\n", goals_path.display());
 
     // Parse goals into structured objects (deterministic)
@@ -170,7 +182,12 @@ fn plan_day(csv: Option<PathBuf>, limit: usize) -> Result<()> {
             .with_context(|| format!("parsing {}", csv_path.display()))?;
         let tasks = TaskEmitter::emit(&txns);
 
+        // Statement temporal range
+        let min_date = txns.iter().map(|t| t.date).min().unwrap();
+        let max_date = txns.iter().map(|t| t.date).max().unwrap();
+
         println!("Parsed {} transactions from {}", txns.len(), csv_path.display());
+        println!("Statement range: {} → {}\n", min_date, max_date);
         println!("Top {} tasks:\n", limit);
 
         for t in tasks.iter().take(limit) {
