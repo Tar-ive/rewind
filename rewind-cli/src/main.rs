@@ -18,6 +18,17 @@ enum Command {
     /// One-time interactive setup: capture goals and write ~/.rewind/*
     Setup,
 
+    /// Generate a basic plan for today from goals + optional statement signals
+    PlanDay {
+        /// Optional AMEX CSV to include implicit finance signals
+        #[arg(long)]
+        csv: Option<PathBuf>,
+
+        /// Limit number of tasks printed (default: 10)
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+    },
+
     /// Finance-related commands
     Finance {
         #[command(subcommand)]
@@ -61,6 +72,10 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::Setup => {
             setup::run_setup()?;
+        }
+
+        Command::PlanDay { csv, limit } => {
+            plan_day(csv, limit)?;
         }
 
         Command::Finance { command } => match command {
@@ -132,9 +147,7 @@ fn default_amex_csv() -> PathBuf {
 }
 
 fn run_interactive(argv: Vec<&str>) -> Result<()> {
-    let (bin, args) = argv
-        .split_first()
-        .context("empty argv")?;
+    let (bin, args) = argv.split_first().context("empty argv")?;
 
     let status = std::process::Command::new(bin)
         .args(args)
@@ -147,6 +160,60 @@ fn run_interactive(argv: Vec<&str>) -> Result<()> {
     if !status.success() {
         bail!("command failed with status: {}", status);
     }
+
+    Ok(())
+}
+
+fn plan_day(csv: Option<PathBuf>, limit: usize) -> Result<()> {
+    let goals_path = state::goals_path()?;
+    if !goals_path.exists() {
+        bail!(
+            "No goals found at {}. Run: rewind setup",
+            goals_path.display()
+        );
+    }
+
+    let goals_md = state::read_goals_md(&goals_path)?;
+
+    println!("# Plan for today\n");
+    println!("Goals file: {}\n", goals_path.display());
+
+    // Print goals (raw for now; later parse into structured goal objects)
+    println!("## Goals (raw)\n");
+    println!("{}\n", goals_md.trim());
+
+    if let Some(csv_path) = csv.or_else(|| {
+        let p = default_amex_csv();
+        if p.exists() { Some(p) } else { None }
+    }) {
+        println!("## Implicit signals: finance (AMEX CSV)\n");
+        let txns = parse_amex_csv(&csv_path)
+            .with_context(|| format!("parsing {}", csv_path.display()))?;
+        let tasks = TaskEmitter::emit(&txns);
+
+        println!("Parsed {} transactions from {}", txns.len(), csv_path.display());
+        println!("Top {} tasks:\n", limit);
+
+        for t in tasks.iter().take(limit) {
+            println!(
+                "- [{:?}] urgency={:.2} | {} | count={} | total=${:.2}",
+                t.goal_tag,
+                t.urgency,
+                t.goal_name,
+                t.transaction_count,
+                t.total_amount.abs()
+            );
+        }
+
+        println!("\nNext: use intent classification to map these tasks to your explicit goals (LLM optional).\n");
+    } else {
+        println!("## Implicit signals\n\n(no statement provided; pass --csv <file>)\n");
+    }
+
+    println!("## Next actions\n");
+    println!("- If you haven’t: `rewind auth claude-setup-token` (optional)");
+    println!("- Import a statement: `rewind finance sync --csv <amex.csv>`");
+    println!("- Re-run planning: `rewind plan-day --csv <amex.csv>`");
 
     Ok(())
 }
