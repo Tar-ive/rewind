@@ -29,11 +29,32 @@ pub struct TaskLike {
 }
 
 fn tokenize(s: &str) -> Vec<String> {
-    s.to_lowercase()
+    let raw: Vec<String> = s
+        .to_lowercase()
         .split(|c: char| !c.is_alphanumeric())
-        .filter(|t| t.len() >= 3)
+        .filter(|t| !t.is_empty())
         .map(|t| t.to_string())
-        .collect()
+        .collect();
+
+    // Simple synonym expansion (deterministic, no LLM)
+    let mut out: Vec<String> = Vec::new();
+    for t in raw {
+        match t.as_str() {
+            // Finance abbreviations
+            "cc" => {
+                out.push("credit".to_string());
+                out.push("card".to_string());
+            }
+            "autopay" | "payment" | "pay" | "paid" => out.push("pay".to_string()),
+            _ => {
+                if t.len() >= 3 {
+                    out.push(t);
+                }
+            }
+        }
+    }
+
+    out
 }
 
 /// Route a task to the best matching goal by keyword overlap.
@@ -121,7 +142,7 @@ mod tests {
         );
 
         let task = TaskLike {
-            title: "Pay credit card bill".to_string(),
+            title: "CC payment | AMEX autopay statement".to_string(),
             horizon_hint: Some(Horizon::Short),
         };
 

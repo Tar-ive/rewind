@@ -9,6 +9,8 @@ license.workspace = true
 serde = { workspace = true }
 chrono = { workspace = true }
 regex = { workspace = true }
+anyhow = { workspace = true }
+chrono-tz = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

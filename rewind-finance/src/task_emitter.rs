@@ -15,6 +15,8 @@ pub struct FinanceTask {
     pub urgency: f64,
     pub total_amount: f64,
     pub transaction_count: usize,
+    /// Small sample of transaction descriptions used for routing/explanations
+    pub sample_descriptions: Vec<String>,
     pub summary: String,
 }
 
@@ -48,6 +50,12 @@ impl TaskEmitter {
                 let amount_boost = (total.abs() / 1000.0).min(0.3);
                 let urgency = (base + amount_boost).min(1.0);
 
+                let sample_descriptions: Vec<String> = items
+                    .iter()
+                    .take(3)
+                    .map(|(t, _)| t.description.trim().to_string())
+                    .collect();
+
                 let summary = format!(
                     "{}: ${:.2} across {} transactions — {}",
                     goal_name,
@@ -63,6 +71,7 @@ impl TaskEmitter {
                     urgency,
                     total_amount: total,
                     transaction_count: count,
+                    sample_descriptions,
                     summary,
                 }
             })
@@ -116,6 +125,8 @@ mod tests {
         // Should have food, subscriptions at minimum
         assert!(tasks.iter().any(|t| t.category == Category::Food));
         assert!(tasks.iter().any(|t| t.category == Category::Subscriptions));
+        // Samples present
+        assert!(tasks.iter().all(|t| !t.sample_descriptions.is_empty()));
     }
 
     #[test]

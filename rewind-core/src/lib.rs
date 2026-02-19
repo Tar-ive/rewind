@@ -6,6 +6,7 @@ pub mod planner;
 pub mod signals;
 pub mod user_goals;
 pub mod routing;
+pub mod time;
 
 pub use finance::{FinanceRecord, Category, GoalTag};
 pub use goals::{GoalDescriptor, GoalTimeframe, ReadinessScore};

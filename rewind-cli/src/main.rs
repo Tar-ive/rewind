@@ -174,8 +174,14 @@ fn plan_day(csv: Option<PathBuf>, limit: usize) -> Result<()> {
         println!("Top {} tasks:\n", limit);
 
         for t in tasks.iter().take(limit) {
+            let mut title = t.goal_name.clone();
+            if !t.sample_descriptions.is_empty() {
+                title.push_str(" | ");
+                title.push_str(&t.sample_descriptions.join(" ; "));
+            }
+
             let task_like = rewind_core::TaskLike {
-                title: t.goal_name.clone(),
+                title,
                 horizon_hint: Some(match t.goal_tag {
                     rewind_core::GoalTag::Long => rewind_core::Horizon::Long,
                     rewind_core::GoalTag::Medium => rewind_core::Horizon::Medium,
