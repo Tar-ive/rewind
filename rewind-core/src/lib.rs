@@ -7,12 +7,16 @@ pub mod signals;
 pub mod user_goals;
 pub mod routing;
 pub mod time;
+pub mod task;
+pub mod sts;
 
 pub use finance::{FinanceRecord, Category, GoalTag};
 pub use goals::{GoalDescriptor, GoalTimeframe, ReadinessScore};
 pub use signals::{ExplicitSignal, ImplicitSignal, PatternType};
 pub use user_goals::{UserGoal, Horizon, parse_goals_md};
 pub use routing::{route_task, TaskLike, RouteResult, RouteConfidence};
+pub use task::{Task, TaskStatus, Priority};
+pub use sts::ShortTermScheduler;
 
 /// Utility for categorizing transaction descriptions
 pub mod categorizer {
