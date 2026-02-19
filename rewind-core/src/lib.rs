@@ -4,10 +4,14 @@ pub mod finance;
 pub mod goals;
 pub mod planner;
 pub mod signals;
+pub mod user_goals;
+pub mod routing;
 
 pub use finance::{FinanceRecord, Category, GoalTag};
 pub use goals::{GoalDescriptor, GoalTimeframe, ReadinessScore};
 pub use signals::{ExplicitSignal, ImplicitSignal, PatternType};
+pub use user_goals::{UserGoal, Horizon, parse_goals_md};
+pub use routing::{route_task, TaskLike, RouteResult, RouteConfidence};
 
 /// Utility for categorizing transaction descriptions
 pub mod categorizer {
