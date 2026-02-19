@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use rewind_finance::{amex_parser::parse_amex_csv, task_emitter::TaskEmitter};
 use std::path::PathBuf;
 
+mod auth;
 mod setup;
 mod state;
 
@@ -58,11 +59,14 @@ enum FinanceCommand {
 
 #[derive(Subcommand, Debug)]
 enum AuthCommand {
-    /// Run `openclaw models auth setup-token --provider anthropic`
+    /// Run Claude Code's OAuth flow (requires `claude` CLI installed)
     ClaudeSetupToken,
 
-    /// Run `openclaw models auth login --provider openai-codex`
-    OpenaiOauth,
+    /// Paste and store an Anthropic API token into ~/.rewind/auth.json
+    PasteAnthropicToken,
+
+    /// Paste and store an OpenAI API key into ~/.rewind/auth.json
+    PasteOpenaiApiKey,
 }
 
 #[tokio::main]
@@ -116,24 +120,13 @@ async fn main() -> Result<()> {
 
         Command::Auth { command } => match command {
             AuthCommand::ClaudeSetupToken => {
-                run_interactive(vec![
-                    "openclaw",
-                    "models",
-                    "auth",
-                    "setup-token",
-                    "--provider",
-                    "anthropic",
-                ])?;
+                auth::claude_setup_token()?;
             }
-            AuthCommand::OpenaiOauth => {
-                run_interactive(vec![
-                    "openclaw",
-                    "models",
-                    "auth",
-                    "login",
-                    "--provider",
-                    "openai-codex",
-                ])?;
+            AuthCommand::PasteAnthropicToken => {
+                auth::anthropic_paste_token()?;
+            }
+            AuthCommand::PasteOpenaiApiKey => {
+                auth::openai_paste_api_key()?;
             }
         },
     }
@@ -144,24 +137,6 @@ async fn main() -> Result<()> {
 fn default_amex_csv() -> PathBuf {
     // Prefer repo-root amex.csv when running from workspace
     PathBuf::from("amex.csv")
-}
-
-fn run_interactive(argv: Vec<&str>) -> Result<()> {
-    let (bin, args) = argv.split_first().context("empty argv")?;
-
-    let status = std::process::Command::new(bin)
-        .args(args)
-        .stdin(std::process::Stdio::inherit())
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .status()
-        .with_context(|| format!("running {}", bin))?;
-
-    if !status.success() {
-        bail!("command failed with status: {}", status);
-    }
-
-    Ok(())
 }
 
 fn plan_day(csv: Option<PathBuf>, limit: usize) -> Result<()> {
@@ -178,9 +153,13 @@ fn plan_day(csv: Option<PathBuf>, limit: usize) -> Result<()> {
     println!("# Plan for today\n");
     println!("Goals file: {}\n", goals_path.display());
 
-    // Print goals (raw for now; later parse into structured goal objects)
-    println!("## Goals (raw)\n");
-    println!("{}\n", goals_md.trim());
+    // Parse goals into structured objects (deterministic)
+    let goals = rewind_core::parse_goals_md(&goals_md);
+    println!("## Goals\n");
+    for g in &goals {
+        println!("- [{:?}] {}", g.horizon, g.text);
+    }
+    println!();
 
     if let Some(csv_path) = csv.or_else(|| {
         let p = default_amex_csv();
@@ -195,17 +174,33 @@ fn plan_day(csv: Option<PathBuf>, limit: usize) -> Result<()> {
         println!("Top {} tasks:\n", limit);
 
         for t in tasks.iter().take(limit) {
+            let task_like = rewind_core::TaskLike {
+                title: t.goal_name.clone(),
+                horizon_hint: Some(match t.goal_tag {
+                    rewind_core::GoalTag::Long => rewind_core::Horizon::Long,
+                    rewind_core::GoalTag::Medium => rewind_core::Horizon::Medium,
+                    rewind_core::GoalTag::Short => rewind_core::Horizon::Short,
+                }),
+            };
+            let route = rewind_core::route_task(&task_like, &goals);
+
+            let routed = match route.goal_index {
+                Some(i) => format!("→ [{:?}] {} ({:?}, {})", goals[i].horizon, goals[i].text, route.confidence, route.reason),
+                None => format!("→ (unrouted) ({:?}, {})", route.confidence, route.reason),
+            };
+
             println!(
-                "- [{:?}] urgency={:.2} | {} | count={} | total=${:.2}",
+                "- [{:?}] urgency={:.2} | {} | count={} | total=${:.2} {}",
                 t.goal_tag,
                 t.urgency,
                 t.goal_name,
                 t.transaction_count,
-                t.total_amount.abs()
+                t.total_amount.abs(),
+                routed
             );
         }
 
-        println!("\nNext: use intent classification to map these tasks to your explicit goals (LLM optional).\n");
+        println!("\nNext: run intent classification only for low-confidence/unrouted tasks (LLM optional).\n");
     } else {
         println!("## Implicit signals\n\n(no statement provided; pass --csv <file>)\n");
     }

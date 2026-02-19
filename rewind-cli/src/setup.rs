@@ -52,7 +52,8 @@ pub fn run_setup() -> Result<()> {
     println!("- {}", profile_path()?.display());
 
     println!("\nNext recommended steps:");
-    println!("- rewind auth claude-setup-token   (optional, to enable LLM intent classification)");
+    println!("- rewind auth claude-setup-token   (optional, to enable Claude OAuth via claude CLI)");
+    println!("- rewind auth paste-anthropic-token (if you want direct Anthropic API calls)");
     println!("- rewind finance sync --csv amex.csv");
 
     Ok(())
