@@ -15,6 +15,8 @@ pub struct StatementTransaction {
     pub description: String,
     /// Positive number means charge/spend; negative means credit/refund.
     pub amount: f64,
+    /// Optional running balance (debit/checking statements often include this)
+    pub balance: Option<f64>,
     pub currency: String,
     pub raw_category: Option<String>,
 }

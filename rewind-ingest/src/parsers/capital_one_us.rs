@@ -83,6 +83,7 @@ pub fn parse_capital_one_us_text(text: &str, statement_year: i32) -> Result<Vec<
                 post_date: post,
                 description: caps["desc"].trim().to_string(),
                 amount,
+                balance: None,
                 currency: "USD".to_string(),
                 raw_category: None,
             });

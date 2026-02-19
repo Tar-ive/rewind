@@ -27,6 +27,22 @@ Notes:
 - The file often contains leading blank rows before the header.
 - Fields may contain embedded newlines (CSV quoting). Use a real CSV parser.
 
+## Chase Debit (PDF)
+
+### Current status
+- Parser exists in Rust (text-based): `rewind-ingest/src/parsers/chase_debit.rs`
+- It expects **PDF-to-text output**.
+
+### Extracted-text expected shape
+Looks for a header line:
+- `TRANSACTION DETAIL`
+
+And then rows like:
+- `04/22   Discover E-Payment ...   -15.00   53.70`
+
+Notes:
+- Chase debit statements include a **running BALANCE**. Rewind stores this as `StatementTransaction.balance` and can use it to track savings progress.
+
 ## Capital One US (PDF)
 
 ### Current status
