@@ -18,6 +18,7 @@ pub fn ensure_rewind_home() -> Result<PathBuf> {
 pub struct Profile {
     pub created_at_utc: Option<String>,
     pub goals_file: String,
+    pub timezone: String,
 }
 
 pub fn goals_path() -> Result<PathBuf> {

@@ -31,6 +31,7 @@ fn prompt_multiline(label: &str) -> Result<Vec<String>> {
 pub fn run_setup() -> Result<()> {
     println!("Rewind setup\n");
     let name = prompt("Your name (optional)")?;
+    let timezone = prompt("Your timezone (IANA, e.g. America/Chicago)")?;
 
     let long = prompt_multiline("LONG-TERM goals")?;
     let medium = prompt_multiline("MEDIUM-TERM goals")?;
@@ -41,9 +42,16 @@ pub fn run_setup() -> Result<()> {
     let gp = goals_path()?;
     fs::write(&gp, goals_md).with_context(|| format!("write {}", gp.display()))?;
 
+    let tz = if timezone.trim().is_empty() {
+        "America/Chicago".to_string()
+    } else {
+        timezone.trim().to_string()
+    };
+
     let profile = Profile {
         created_at_utc: Some(chrono::Utc::now().to_rfc3339()),
         goals_file: gp.display().to_string(),
+        timezone: tz,
     };
     write_profile(&profile)?;
 
