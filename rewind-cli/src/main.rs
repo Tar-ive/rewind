@@ -3,6 +3,9 @@ use clap::{Parser, Subcommand};
 use rewind_finance::{amex_parser::parse_amex_csv, task_emitter::TaskEmitter};
 use std::path::PathBuf;
 
+mod setup;
+mod state;
+
 #[derive(Parser, Debug)]
 #[command(name = "rewind", version, about = "Rewind Rust-native CLI")]
 struct Cli {
@@ -12,6 +15,9 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
+    /// One-time interactive setup: capture goals and write ~/.rewind/*
+    Setup,
+
     /// Finance-related commands
     Finance {
         #[command(subcommand)]
@@ -53,6 +59,10 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Command::Setup => {
+            setup::run_setup()?;
+        }
+
         Command::Finance { command } => match command {
             FinanceCommand::Sync { csv, account } => {
                 let csv_path = csv.unwrap_or_else(default_amex_csv);

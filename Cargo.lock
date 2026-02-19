@@ -1039,10 +1039,13 @@ name = "rewind-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "rewind-core",
  "rewind-finance",
  "rewind-ingest",
+ "serde",
+ "serde_json",
  "tokio",
 ]
 
