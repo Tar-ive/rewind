@@ -9,6 +9,7 @@ mod calendar;
 mod google_calendar;
 mod nudges;
 mod chat;
+mod llm;
 mod onboard;
 mod setup;
 mod state;

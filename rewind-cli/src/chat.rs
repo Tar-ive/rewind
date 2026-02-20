@@ -15,6 +15,8 @@ use ratatui::{
 use std::io::{self, Stdout};
 use std::path::PathBuf;
 
+use crate::llm;
+
 #[derive(Clone, Debug)]
 struct Msg {
     role: Role,
@@ -200,8 +202,18 @@ fn chat_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
                                     content: trimmed.clone(),
                                 });
 
-                                // v0 assistant: deterministic, non-LLM. Providers come next.
-                                let reply = wellwisher_reply(&trimmed);
+                                // If an LLM is configured, use it; otherwise fall back to deterministic.
+                                let reply = if let Some(cfg) = llm::default_config()? {
+                                    let system = wellwisher_system_prompt();
+                                    let turns = to_llm_turns(&messages, &trimmed);
+                                    match llm::chat_complete(&cfg, &system, &turns) {
+                                        Ok(s) if !s.trim().is_empty() => s,
+                                        _ => wellwisher_reply(&trimmed),
+                                    }
+                                } else {
+                                    wellwisher_reply(&trimmed)
+                                };
+
                                 messages.push(Msg {
                                     role: Role::Assistant,
                                     content: reply.clone(),
@@ -266,6 +278,48 @@ For now, add/edit ~/.rewind/goals.md and rerun rewind plan-day / calendar push."
         ),
         _ => Some("Unknown command. Try /help".to_string()),
     }
+}
+
+fn to_llm_turns(messages: &[Msg], pending_user: &str) -> Vec<llm::ChatTurn> {
+    let mut turns = Vec::new();
+
+    // Include only recent conversation to keep it fast.
+    let start = messages.len().saturating_sub(12);
+    for m in &messages[start..] {
+        match m.role {
+            Role::User => turns.push(llm::ChatTurn {
+                role: "user".to_string(),
+                content: m.content.clone(),
+            }),
+            Role::Assistant => turns.push(llm::ChatTurn {
+                role: "assistant".to_string(),
+                content: m.content.clone(),
+            }),
+            Role::System => {}
+        }
+    }
+
+    turns.push(llm::ChatTurn {
+        role: "user".to_string(),
+        content: pending_user.to_string(),
+    });
+
+    turns
+}
+
+fn wellwisher_system_prompt() -> String {
+    // Tone rules from Tarive:
+    // - soft, smooth, respectful
+    // - user is capable; they choose Rewind as a companion
+    // - avoid pathologizing language (e.g., do not use "overwhelm")
+    // - keep it practical: pay/check/review, goals, gentle accountability
+    "You are Rewind, a calm, kind wellwisher and planning companion.\n\
+The user is capable and chooses to chat with you; treat them with respect.\n\
+Be concise and action-oriented. Offer small, optional next steps, not lectures.\n\
+Never use pathologizing language; avoid words like 'overwhelm'.\n\
+When appropriate, suggest one of: Pay (2–5 min), Check (5 min), Review/Plan (10 min).\n\
+If the user asks about calendar/goals/statements, provide exact commands."
+        .to_string()
 }
 
 fn wellwisher_reply(user: &str) -> String {

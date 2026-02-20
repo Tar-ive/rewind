@@ -19,6 +19,7 @@ serde_json = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 which = "7.0"
+reqwest = { workspace = true }
 
 # TUI
 ratatui = "0.29"
