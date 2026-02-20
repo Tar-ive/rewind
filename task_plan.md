@@ -39,12 +39,16 @@ Build a Rust-native scheduler + CLI (`rewind`) that:
   - [x] Nudge mode (max 3/day) as default
   - [x] Graveyard cancelled events + preserve " - done"
 - [x] Implement `rewind chat` (TUI skeleton)
-- [ ] Tighten `rewind chat` UX:
-  - [ ] Daily logs to `~/.rewind/chat/YYYY-MM-DD.md`
-  - [ ] Startup splash "Rewind" + session header (Codex-style)
-  - [ ] Slash commands: /help, /status, /calendar, /goals, /statements, /reminders (scaffold)
-  - [ ] Tone rules: wellwisher voice, respectful, avoid pathologizing language
-  - [ ] Keybind help: `?` for shortcuts
+- [ ] Tighten `rewind chat` UX (ZeroClaw-inspired):
+  - [x] Daily logs to `~/.rewind/chat/YYYY-MM-DD.md`
+  - [x] Startup splash "Rewind" + session header (Codex-style)
+  - [x] Slash commands scaffold: /help, /status, /calendar, /goals, /statements, /reminders
+  - [x] Tone rules: wellwisher voice, respectful, avoid pathologizing language
+  - [x] Keybind help: `?` for shortcuts
+  - [ ] **Streaming tokens**: async worker + SSE parsing + incremental render
+  - [ ] Provider abstraction + config.toml (model-agnostic: openai/anthropic/openrouter)
+  - [ ] OpenAI OAuth default (velocity): shell out to existing CLI login
+  - [ ] Vault design + implementation plan (argon2id + encrypted blob)
 - [ ] Add `status` / `cache` / `configure`
 - [ ] Commit + push
 
