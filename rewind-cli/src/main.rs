@@ -4,6 +4,7 @@ use rewind_finance::{amex_parser::parse_amex_csv, task_emitter::TaskEmitter};
 use std::path::PathBuf;
 
 mod auth;
+mod config;
 mod calendar;
 #[cfg(feature = "gcal")]
 mod google_calendar;
@@ -27,6 +28,9 @@ struct Cli {
 enum Command {
     /// One-time interactive setup: capture goals and write ~/.rewind/*
     Setup,
+
+    /// Create ~/.rewind/config.toml with defaults (ZeroClaw-style)
+    ConfigInit,
 
     /// Generate a basic plan for today from goals + optional statement signals
     PlanDay {
@@ -200,6 +204,10 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::Setup => {
             setup::run_setup()?;
+        }
+
+        Command::ConfigInit => {
+            config::init_config()?;
         }
 
         Command::PlanDay { csv, limit } => {

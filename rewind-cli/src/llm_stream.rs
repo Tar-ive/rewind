@@ -24,8 +24,7 @@ pub async fn stream_chat(
     on_event(StreamEvent::Started);
 
     match cfg.provider {
-        Provider::OpenAI => stream_openai_compatible(cfg, system, turns, "https://api.openai.com", &mut on_event).await,
-        // For now, OpenRouter uses the same OpenAI-compatible protocol; base_url can be swapped later via config.
+        Provider::OpenAI => stream_openai_compatible(cfg, system, turns, &cfg.base_url, &mut on_event).await,
         Provider::Anthropic => {
             bail!("streaming for anthropic not implemented yet (next).")
         }
@@ -71,9 +70,9 @@ async fn stream_openai_compatible(
     }
 
     let body = OaiReq {
-        model: cfg.model.clone(),
+        model: crate::config::normalize_openai_model(&cfg.model),
         messages,
-        temperature: 0.4,
+        temperature: cfg.temperature,
         stream: true,
     };
 

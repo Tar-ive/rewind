@@ -14,6 +14,8 @@ pub enum Provider {
 pub struct LlmConfig {
     pub provider: Provider,
     pub model: String,
+    pub base_url: String,
+    pub temperature: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -23,20 +25,31 @@ pub struct ChatTurn {
 }
 
 pub fn default_config() -> Result<Option<LlmConfig>> {
+    let cfg = crate::config::load_config()?;
     let a = auth::load_auth()?;
-    if a.anthropic_token.is_some() {
-        return Ok(Some(LlmConfig {
-            provider: Provider::Anthropic,
-            model: "claude-3-5-sonnet-latest".to_string(),
-        }));
+
+    let provider = match cfg.llm.provider.as_str() {
+        "anthropic" => Provider::Anthropic,
+        "openai" => Provider::OpenAI,
+        "openrouter" => Provider::OpenAI, // OpenAI-compatible for now
+        other => {
+            return Err(anyhow::anyhow!("unknown llm.provider: {other}"));
+        }
+    };
+
+    // Require matching secret
+    match provider {
+        Provider::Anthropic if a.anthropic_token.is_none() => return Ok(None),
+        Provider::OpenAI if a.openai_api_key.is_none() => return Ok(None),
+        _ => {}
     }
-    if a.openai_api_key.is_some() {
-        return Ok(Some(LlmConfig {
-            provider: Provider::OpenAI,
-            model: "gpt-4o-mini".to_string(),
-        }));
-    }
-    Ok(None)
+
+    Ok(Some(LlmConfig {
+        provider,
+        model: cfg.llm.model,
+        base_url: cfg.llm.base_url,
+        temperature: cfg.llm.temperature,
+    }))
 }
 
 pub fn chat_complete(config: &LlmConfig, system: &str, turns: &[ChatTurn]) -> Result<String> {
