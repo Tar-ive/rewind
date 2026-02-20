@@ -17,6 +17,7 @@ fn ceil_to_quarter_hour(dt: DateTime<Tz>) -> DateTime<Tz> {
 }
 
 pub struct CalendarEvent {
+    pub task_id: String,
     pub start_utc: DateTime<Utc>,
     pub end_utc: DateTime<Utc>,
     pub summary: String,
@@ -42,6 +43,7 @@ pub fn tasks_to_timeblocks(
         let end_local = cursor_local + Duration::minutes(minutes);
 
         events.push(CalendarEvent {
+            task_id: t.id.clone(),
             start_utc: cursor_local.with_timezone(&Utc),
             end_utc: end_local.with_timezone(&Utc),
             summary: format!("{}{}", prefix, t.title),
@@ -61,17 +63,17 @@ pub fn tasks_to_timeblocks(
 ///
 /// Notes:
 /// - DTSTART/DTEND are UTC.
-/// - We avoid UID stability for now (v0); we can add stable UIDs later.
+/// - UID is stable per task_id so repeated exports/pushes can diff deterministically.
 pub fn events_to_ics(events: &[CalendarEvent]) -> String {
     let mut s = String::new();
     s.push_str("BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Rewind//EN\n");
 
-    for (i, e) in events.iter().enumerate() {
+    for e in events.iter() {
         let dtstart = e.start_utc.format("%Y%m%dT%H%M%SZ");
         let dtend = e.end_utc.format("%Y%m%dT%H%M%SZ");
 
         s.push_str("BEGIN:VEVENT\n");
-        s.push_str(&format!("UID:rewind-{}@rewind\n", i));
+        s.push_str(&format!("UID:rewind-{}@rewind\n", e.task_id));
         s.push_str(&format!("DTSTART:{}\n", dtstart));
         s.push_str(&format!("DTEND:{}\n", dtend));
         s.push_str(&format!("SUMMARY:{}\n", escape_ics(&e.summary)));

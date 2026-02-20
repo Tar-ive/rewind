@@ -104,7 +104,14 @@ enum CalendarCommand {
     },
 
     /// Connect Rewind to Google Calendar via OAuth (direct API)
-    Connect,
+    Connect {
+        /// Path to the Google OAuth client secret JSON (recommended)
+        #[arg(long = "client-json")]
+        client_json: Option<PathBuf>,
+    },
+
+    /// Show whether Rewind is connected (OAuth config + token cache)
+    Status,
 
     /// Push time-blocked events via the Google Calendar API (direct API)
     PushGoogle {
@@ -188,14 +195,25 @@ async fn main() -> Result<()> {
                 let ics = calendar_build_ics(csv, limit, energy, &prefix)?;
                 calendar::push_ics_via_gcalcli(&ics, cal.as_deref())?;
             }
-            CalendarCommand::Connect => {
+            CalendarCommand::Connect { client_json } => {
                 #[cfg(feature = "gcal")]
                 {
-                    google_calendar::connect_interactive().await?;
+                    google_calendar::connect_interactive(client_json).await?;
                 }
                 #[cfg(not(feature = "gcal"))]
                 {
+                    let _ = client_json;
                     bail!("Google Calendar direct API support not enabled in this build. Reinstall with: cargo install --path rewind-cli --locked --features gcal");
+                }
+            }
+            CalendarCommand::Status => {
+                #[cfg(feature = "gcal")]
+                {
+                    google_calendar::calendar_status()?;
+                }
+                #[cfg(not(feature = "gcal"))]
+                {
+                    bail!("Google Calendar direct API support not enabled in this build.");
                 }
             }
             CalendarCommand::PushGoogle { csv, limit, energy, calendar_id, prefix } => {
@@ -211,7 +229,11 @@ async fn main() -> Result<()> {
 
                 #[cfg(feature = "gcal")]
                 {
-                    google_calendar::push_events(&calendar_id, &events).await?;
+                    let summary = google_calendar::push_events(&calendar_id, &events).await?;
+                    println!(
+                        "Pushed schedule to Google Calendar '{}' (created {}, updated {})",
+                        calendar_id, summary.created, summary.updated
+                    );
                 }
                 #[cfg(not(feature = "gcal"))]
                 {
