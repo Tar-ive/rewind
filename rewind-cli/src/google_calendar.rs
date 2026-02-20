@@ -207,6 +207,15 @@ pub async fn push_events(calendar_id: &str, events: &[CalendarEvent]) -> Result<
     let client = load_oauth_client()?;
     let hub = hub_from_client(&client).await?;
 
+    // Force an auth token with write scope up front, so users don't see multiple
+    // browser prompts (readonly first, then write later).
+    const SCOPE_EVENTS: &str = "https://www.googleapis.com/auth/calendar.events";
+    let _ = hub
+        .auth
+        .get_token(&[SCOPE_EVENTS])
+        .await
+        .map_err(|e| anyhow::anyhow!("Google OAuth (calendar.events) failed: {e}"))?;
+
     // We manage a deterministic window: "today" in the user's timezone.
     // Anything previously created by Rewind in that window but not in the new schedule
     // gets moved to an end-of-day "graveyard" and marked CANCELLED.

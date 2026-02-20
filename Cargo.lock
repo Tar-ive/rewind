@@ -1456,7 +1456,7 @@ dependencies = [
 
 [[package]]
 name = "rewind-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1476,7 +1476,7 @@ dependencies = [
 
 [[package]]
 name = "rewind-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1488,7 +1488,7 @@ dependencies = [
 
 [[package]]
 name = "rewind-finance"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1503,7 +1503,7 @@ dependencies = [
 
 [[package]]
 name = "rewind-ingest"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "chrono",
