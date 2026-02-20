@@ -15,6 +15,7 @@ use ratatui::{
 use std::io::{self, Stdout};
 use std::path::PathBuf;
 
+use crate::chat_worker;
 use crate::llm;
 
 #[derive(Clone, Debug)]
@@ -27,7 +28,6 @@ struct Msg {
 enum Role {
     User,
     Assistant,
-    System,
 }
 
 struct ChatLog {
@@ -42,18 +42,6 @@ impl ChatLog {
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
         let path = dir.join(format!("{today}.md"));
         Ok(Self { path })
-    }
-
-    fn append_system(&mut self, msg: &str) -> Result<()> {
-        self.append("system", msg)
-    }
-
-    fn append_user(&mut self, msg: &str) -> Result<()> {
-        self.append("user", msg)
-    }
-
-    fn append_assistant(&mut self, msg: &str) -> Result<()> {
-        self.append("assistant", msg)
     }
 
     fn append(&mut self, role: &str, msg: &str) -> Result<()> {
@@ -99,11 +87,59 @@ fn chat_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
     let mut input = String::new();
     let mut show_help = true;
 
-    // daily log file
     let mut log = ChatLog::open_today()?;
-    log.append_system("session_start")?;
+    log.append("system", "session_start")?;
+
+    // UI -> worker (async)
+    let (tx_req, rx_req) = tokio::sync::mpsc::unbounded_channel::<chat_worker::ChatRequest>();
+    // worker -> UI (sync)
+    let (tx_evt, rx_evt) = std::sync::mpsc::channel::<chat_worker::ChatEvent>();
+
+    tokio::spawn(chat_worker::run_worker(rx_req, tx_evt));
+
+    let mut next_request_id: u64 = 1;
+    let mut streaming_request_id: Option<u64> = None;
 
     loop {
+        // Drain worker events to update UI state.
+        while let Ok(ev) = rx_evt.try_recv() {
+            match ev {
+                chat_worker::ChatEvent::Started { request_id } => {
+                    streaming_request_id = Some(request_id);
+                }
+                chat_worker::ChatEvent::Delta { request_id, text } => {
+                    if streaming_request_id == Some(request_id) {
+                        // Append deltas to last assistant message.
+                        if let Some(last) = messages.last_mut() {
+                            if matches!(last.role, Role::Assistant) {
+                                last.content.push_str(&text);
+                            }
+                        }
+                    }
+                }
+                chat_worker::ChatEvent::Completed { request_id } => {
+                    if streaming_request_id == Some(request_id) {
+                        streaming_request_id = None;
+                        if let Some(last) = messages.last() {
+                            if matches!(last.role, Role::Assistant) {
+                                let _ = log.append("assistant", &last.content);
+                            }
+                        }
+                    }
+                }
+                chat_worker::ChatEvent::Error { request_id, message } => {
+                    if streaming_request_id == Some(request_id) {
+                        streaming_request_id = None;
+                    }
+                    messages.push(Msg {
+                        role: Role::Assistant,
+                        content: format!("(note) {message}"),
+                    });
+                    let _ = log.append("assistant", &format!("(error) {message}"));
+                }
+            }
+        }
+
         terminal.draw(|f| {
             let size = f.area();
             let chunks = Layout::default()
@@ -115,7 +151,6 @@ fn chat_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
                 ])
                 .split(size);
 
-            // Splash/header (Codex-style)
             let splash = Paragraph::new(Text::from(vec![
                 Line::from(Span::styled(
                     "Rewind",
@@ -124,10 +159,7 @@ fn chat_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
                         .add_modifier(Modifier::BOLD),
                 )),
                 Line::from(Span::raw("")),
-                Line::from(Span::styled(
-                    ">_ rewind chat",
-                    Style::default().fg(Color::Cyan),
-                )),
+                Line::from(Span::styled(">_ rewind chat", Style::default().fg(Color::Cyan))),
                 Line::from(Span::styled(
                     "type /help or ? for shortcuts",
                     Style::default().fg(Color::Gray),
@@ -142,10 +174,12 @@ fn chat_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
             let mut lines: Vec<Line> = Vec::new();
             if show_help {
                 lines.push(Line::from(Span::styled(
-                    "Shortcuts: Enter=send, q=quit, ?=help",
+                    "Shortcuts: Enter=send, q=quit, ?=toggle help",
                     Style::default().fg(Color::Gray),
                 )));
-                lines.push(Line::raw("Commands: /help /status /calendar /goals /statements /reminders"));
+                lines.push(Line::raw(
+                    "Commands: /help /status /calendar /goals /statements /reminders",
+                ));
                 lines.push(Line::raw(""));
             }
 
@@ -153,13 +187,20 @@ fn chat_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
                 let (tag, color) = match m.role {
                     Role::User => ("you", Color::Cyan),
                     Role::Assistant => ("rewind", Color::Magenta),
-                    Role::System => ("system", Color::Gray),
                 };
                 lines.push(Line::from(vec![
                     Span::styled(format!("{}: ", tag), Style::default().fg(color)),
                     Span::raw(m.content.clone()),
                 ]));
                 lines.push(Line::raw(""));
+            }
+
+            // Typing indicator
+            if streaming_request_id.is_some() {
+                lines.push(Line::from(Span::styled(
+                    "rewind is writing…",
+                    Style::default().fg(Color::Gray),
+                )));
             }
 
             let history = Paragraph::new(Text::from(lines))
@@ -174,7 +215,7 @@ fn chat_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
             f.render_widget(input_widget, chunks[2]);
         })?;
 
-        if event::poll(std::time::Duration::from_millis(50))? {
+        if event::poll(std::time::Duration::from_millis(33))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind != KeyEventKind::Press {
                     continue;
@@ -186,41 +227,45 @@ fn chat_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
                     }
                     KeyCode::Enter => {
                         let trimmed = input.trim().to_string();
-                        if !trimmed.is_empty() {
-                            log.append_user(&trimmed)?;
-
-                            // Slash commands
-                            if let Some(reply) = handle_slash(&trimmed) {
-                                messages.push(Msg {
-                                    role: Role::Assistant,
-                                    content: reply.clone(),
-                                });
-                                log.append_assistant(&reply)?;
-                            } else {
-                                messages.push(Msg {
-                                    role: Role::User,
-                                    content: trimmed.clone(),
-                                });
-
-                                // If an LLM is configured, use it; otherwise fall back to deterministic.
-                                let reply = if let Some(cfg) = llm::default_config()? {
-                                    let system = wellwisher_system_prompt();
-                                    let turns = to_llm_turns(&messages, &trimmed);
-                                    match llm::chat_complete(&cfg, &system, &turns) {
-                                        Ok(s) if !s.trim().is_empty() => s,
-                                        _ => wellwisher_reply(&trimmed),
-                                    }
-                                } else {
-                                    wellwisher_reply(&trimmed)
-                                };
-
-                                messages.push(Msg {
-                                    role: Role::Assistant,
-                                    content: reply.clone(),
-                                });
-                                log.append_assistant(&reply)?;
-                            }
+                        if trimmed.is_empty() {
+                            input.clear();
+                            continue;
                         }
+
+                        // Log and append user message
+                        log.append("user", &trimmed)?;
+
+                        if let Some(reply) = handle_slash(&trimmed) {
+                            messages.push(Msg {
+                                role: Role::Assistant,
+                                content: reply.clone(),
+                            });
+                            log.append("assistant", &reply)?;
+                        } else {
+                            messages.push(Msg {
+                                role: Role::User,
+                                content: trimmed.clone(),
+                            });
+
+                            // Reserve a message for streaming output.
+                            messages.push(Msg {
+                                role: Role::Assistant,
+                                content: String::new(),
+                            });
+
+                            let req_id = next_request_id;
+                            next_request_id += 1;
+                            streaming_request_id = Some(req_id);
+
+                            let req = chat_worker::ChatRequest {
+                                request_id: req_id,
+                                system: wellwisher_system_prompt(),
+                                turns: to_llm_turns(&messages, ""),
+                            };
+
+                            let _ = tx_req.send(req);
+                        }
+
                         input.clear();
                     }
                     KeyCode::Backspace => {
@@ -280,7 +325,7 @@ For now, add/edit ~/.rewind/goals.md and rerun rewind plan-day / calendar push."
     }
 }
 
-fn to_llm_turns(messages: &[Msg], pending_user: &str) -> Vec<llm::ChatTurn> {
+fn to_llm_turns(messages: &[Msg], _pending_user: &str) -> Vec<llm::ChatTurn> {
     let mut turns = Vec::new();
 
     // Include only recent conversation to keep it fast.
@@ -291,54 +336,28 @@ fn to_llm_turns(messages: &[Msg], pending_user: &str) -> Vec<llm::ChatTurn> {
                 role: "user".to_string(),
                 content: m.content.clone(),
             }),
-            Role::Assistant => turns.push(llm::ChatTurn {
-                role: "assistant".to_string(),
-                content: m.content.clone(),
-            }),
-            Role::System => {}
+            Role::Assistant => {
+                // Skip empty streaming placeholder
+                if m.content.trim().is_empty() {
+                    continue;
+                }
+                turns.push(llm::ChatTurn {
+                    role: "assistant".to_string(),
+                    content: m.content.clone(),
+                })
+            }
         }
     }
-
-    turns.push(llm::ChatTurn {
-        role: "user".to_string(),
-        content: pending_user.to_string(),
-    });
 
     turns
 }
 
 fn wellwisher_system_prompt() -> String {
-    // Tone rules from Tarive:
-    // - soft, smooth, respectful
-    // - user is capable; they choose Rewind as a companion
-    // - avoid pathologizing language (e.g., do not use "overwhelm")
-    // - keep it practical: pay/check/review, goals, gentle accountability
-    "You are Rewind, a calm, kind wellwisher and planning companion.\n\
+    "You are Rewind, a calm, kind wellwisher and planning companion focused on financial goals.\n\
 The user is capable and chooses to chat with you; treat them with respect.\n\
-Be concise and action-oriented. Offer small, optional next steps, not lectures.\n\
-Never use pathologizing language; avoid words like 'overwhelm'.\n\
+Be concise and practical. Offer small, optional next steps, not lectures.\n\
+Never use pathologizing language.\n\
 When appropriate, suggest one of: Pay (2–5 min), Check (5 min), Review/Plan (10 min).\n\
 If the user asks about calendar/goals/statements, provide exact commands."
         .to_string()
-}
-
-fn wellwisher_reply(user: &str) -> String {
-    let u = user.to_lowercase();
-
-    // Respectful, non-pathologizing prompts.
-    if u.contains("busy") || u.contains("later") {
-        return "No problem. If you want, tell me: (1) Pay, (2) Check, or (3) Review — and I’ll keep it to one small step.".to_string();
-    }
-
-    if u.trim() == "1" {
-        return "Pay: do the minimum payment for your highest-interest card. When you finish, add ' - done' to today’s Pay nudge in Calendar.".to_string();
-    }
-    if u.trim() == "2" {
-        return "Check: open your bank/CC app and confirm next due date + minimum. If anything is due within 72 hours, tell me the due date + your timezone.".to_string();
-    }
-    if u.trim() == "3" {
-        return "Review: look at the last 7 days and pick one category you’d like to improve (food, subscriptions, transport). We’ll choose one small rule.".to_string();
-    }
-
-    "What’s one money win you’d like this week — lower stress, fewer surprises, or more savings?".to_string()
 }

@@ -10,6 +10,8 @@ mod google_calendar;
 mod nudges;
 mod chat;
 mod llm;
+mod llm_stream;
+mod chat_worker;
 mod onboard;
 mod setup;
 mod state;
