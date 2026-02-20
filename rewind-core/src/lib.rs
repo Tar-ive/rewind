@@ -8,8 +8,10 @@ pub mod user_goals;
 pub mod routing;
 pub mod time;
 pub mod task;
+pub mod task_buffer;
 pub mod sts;
 pub mod mts;
+pub mod mts_task_buffer;
 
 pub use finance::{FinanceRecord, Category, GoalTag};
 pub use goals::{GoalDescriptor, GoalTimeframe, ReadinessScore};
@@ -17,8 +19,10 @@ pub use signals::{ExplicitSignal, ImplicitSignal, PatternType};
 pub use user_goals::{UserGoal, Horizon, parse_goals_md};
 pub use routing::{route_task, TaskLike, RouteResult, RouteConfidence};
 pub use task::{Task, TaskStatus, Priority};
+pub use task_buffer::TaskBuffer;
 pub use sts::ShortTermScheduler;
 pub use mts::{SwapResult, handle_swap_in, handle_swap_out, maybe_delegate_low_energy};
+pub use mts_task_buffer::handle_swap_in_buffer;
 
 /// Utility for categorizing transaction descriptions
 pub mod categorizer {
