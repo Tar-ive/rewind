@@ -6,12 +6,14 @@ use std::path::PathBuf;
 use crate::state::ensure_rewind_home;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Config {
     pub llm: LlmSection,
     pub chat: ChatSection,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct LlmSection {
     pub provider: String,
     pub model: String,
@@ -25,27 +27,40 @@ pub struct LlmSection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ChatSection {
     pub stream: bool,
     pub max_turns_context: usize,
 }
 
+impl Default for LlmSection {
+    fn default() -> Self {
+        Self {
+            provider: "openai".to_string(),
+            // Accept OpenClaw-style aliases too. We'll normalize when calling the API.
+            model: "openai-codex/gpt-5.1".to_string(),
+            base_url: "https://api.openai.com".to_string(),
+            temperature: 0.4,
+            codex_command: Some("codex".to_string()),
+            codex_args: None,
+        }
+    }
+}
+
+impl Default for ChatSection {
+    fn default() -> Self {
+        Self {
+            stream: true,
+            max_turns_context: 12,
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
-            llm: LlmSection {
-                provider: "openai".to_string(),
-                // Accept OpenClaw-style aliases too. We'll normalize when calling the API.
-                model: "openai-codex/gpt-5.1".to_string(),
-                base_url: "https://api.openai.com".to_string(),
-                temperature: 0.4,
-                codex_command: Some("codex".to_string()),
-                codex_args: None,
-            },
-            chat: ChatSection {
-                stream: true,
-                max_turns_context: 12,
-            },
+            llm: LlmSection::default(),
+            chat: ChatSection::default(),
         }
     }
 }

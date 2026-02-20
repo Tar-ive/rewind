@@ -1,3 +1,7 @@
+#![allow(dead_code)]
+
+#![allow(dead_code)]
+
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Duration, Timelike, Utc};
 use chrono_tz::Tz;
@@ -28,6 +32,7 @@ pub struct CalendarEvent {
 /// Convert an ordered schedule of tasks into time-blocked events.
 ///
 /// We keep this deterministic: no LLM, no fancy optimization yet.
+#[allow(dead_code)]
 pub fn tasks_to_timeblocks(
     ordered: &[Task],
     tz: Tz,

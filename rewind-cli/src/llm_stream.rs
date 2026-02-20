@@ -8,6 +8,7 @@ use crate::auth;
 use crate::llm::{ChatTurn, LlmConfig, Provider};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum StreamEvent {
     Started,
     Delta(String),

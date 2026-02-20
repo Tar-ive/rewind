@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use anyhow::{bail, Context, Result};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};

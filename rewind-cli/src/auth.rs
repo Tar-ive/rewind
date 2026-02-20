@@ -88,8 +88,18 @@ pub fn openai_oauth() -> Result<()> {
             Err(e) => return Err(e).context("running codex login"),
             Ok(s) if !s.success() => bail!("codex login failed: {s}"),
             Ok(_) => {
-                println!("\nLogin complete. Next: add your OpenAI API key for streaming chat:");
-                println!("  rewind auth paste-openai-api-key");
+                let provider = crate::config::load_config()
+                    .ok()
+                    .map(|c| c.llm.provider)
+                    .unwrap_or_else(|| "openai".to_string());
+
+                if provider == "codex-cli" {
+                    println!("\nLogin complete. You're set for codex-cli streaming.");
+                    println!("Next: run `rewind chat`. No API key required.");
+                } else {
+                    println!("\nLogin complete. Next: add your OpenAI API key for streaming chat:");
+                    println!("  rewind auth paste-openai-api-key");
+                }
                 return Ok(());
             }
         }
@@ -109,8 +119,18 @@ pub fn openai_oauth() -> Result<()> {
             Err(e) => return Err(e).context("running openclaw models auth login"),
             Ok(s) if !s.success() => bail!("openclaw login failed: {s}"),
             Ok(_) => {
-                println!("\nLogin complete. Next: add your OpenAI API key for streaming chat:");
-                println!("  rewind auth paste-openai-api-key");
+                let provider = crate::config::load_config()
+                    .ok()
+                    .map(|c| c.llm.provider)
+                    .unwrap_or_else(|| "openai".to_string());
+
+                if provider == "codex-cli" {
+                    println!("\nLogin complete. You're set for codex-cli streaming.");
+                    println!("Next: run `rewind chat`. No API key required.");
+                } else {
+                    println!("\nLogin complete. Next: add your OpenAI API key for streaming chat:");
+                    println!("  rewind auth paste-openai-api-key");
+                }
                 return Ok(());
             }
         }
