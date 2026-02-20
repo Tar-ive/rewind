@@ -33,7 +33,19 @@ Build a Rust-native scheduler + CLI (`rewind`) that:
 - [x] Create `rewind-cli` binary crate
 - [x] Subcommands: `finance sync` (AMEX CSV) + `auth` helpers
 - [x] Wire finance parser + task emitter into CLI (`rewind finance sync --csv amex.csv`)
-- [ ] Add `status` / `cache` / `configure` / `plan-day`
+- [x] Calendar:
+  - [x] ICS export
+  - [x] Google Calendar direct API (feature `gcal`) + connect/status
+  - [x] Nudge mode (max 3/day) as default
+  - [x] Graveyard cancelled events + preserve " - done"
+- [x] Implement `rewind chat` (TUI skeleton)
+- [ ] Tighten `rewind chat` UX:
+  - [ ] Daily logs to `~/.rewind/chat/YYYY-MM-DD.md`
+  - [ ] Startup splash "Rewind" + session header (Codex-style)
+  - [ ] Slash commands: /help, /status, /calendar, /goals, /statements, /reminders (scaffold)
+  - [ ] Tone rules: wellwisher voice, respectful, avoid pathologizing language
+  - [ ] Keybind help: `?` for shortcuts
+- [ ] Add `status` / `cache` / `configure`
 - [ ] Commit + push
 
 ### Phase 4: Claude Auth (`setup-token`)
