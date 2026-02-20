@@ -58,6 +58,10 @@ pub fn load_oauth_client() -> Result<GoogleOAuthClient> {
     Ok(serde_json::from_str(&s)?)
 }
 
+pub fn token_cache_exists() -> Result<bool> {
+    Ok(token_cache_path()?.exists())
+}
+
 pub fn calendar_status() -> Result<()> {
     let oauth_p = oauth_client_path()?;
     let token_p = token_cache_path()?;
@@ -204,17 +208,16 @@ pub async fn push_events(calendar_id: &str, events: &[CalendarEvent]) -> Result<
     use chrono::{Duration, TimeZone};
     use chrono_tz::Tz;
 
+    if !token_cache_exists()? {
+        bail!("Not connected. Run: rewind calendar connect --client-json <client_secret.json>");
+    }
+
     let client = load_oauth_client()?;
     let hub = hub_from_client(&client).await?;
 
-    // Force an auth token with write scope up front, so users don't see multiple
-    // browser prompts (readonly first, then write later).
-    const SCOPE_EVENTS: &str = "https://www.googleapis.com/auth/calendar.events";
-    let _ = hub
-        .auth
-        .get_token(&[SCOPE_EVENTS])
-        .await
-        .map_err(|e| anyhow::anyhow!("Google OAuth (calendar.events) failed: {e}"))?;
+    // NOTE: We intentionally do not prefetch tokens here anymore.
+    // Auth should happen during `rewind calendar connect`.
+    // If tokens are missing/expired, Google libs may still prompt.
 
     // We manage a deterministic window: "today" in the user's timezone.
     // Anything previously created by Rewind in that window but not in the new schedule

@@ -7,6 +7,7 @@ mod auth;
 mod calendar;
 #[cfg(feature = "gcal")]
 mod google_calendar;
+mod nudges;
 mod onboard;
 mod setup;
 mod state;
@@ -113,13 +114,13 @@ enum CalendarCommand {
     /// Show whether Rewind is connected (OAuth config + token cache)
     Status,
 
-    /// Push time-blocked events via the Google Calendar API (direct API)
+    /// Push events via the Google Calendar API (direct API)
     PushGoogle {
         /// AMEX CSV to derive finance tasks (optional)
         #[arg(long)]
         csv: Option<PathBuf>,
 
-        /// Number of finance tasks to schedule
+        /// Number of finance tasks to consider
         #[arg(long, default_value_t = 10)]
         limit: usize,
 
@@ -131,8 +132,14 @@ enum CalendarCommand {
         #[arg(long, default_value = "primary")]
         calendar_id: String,
 
-        /// Event title prefix
-        #[arg(long, default_value = "Rewind: STS: ")]
+        /// Push mode:
+        /// - nudge: max 3 daily nudges (pay/check/review) (default)
+        /// - visualize-sts: full STS time-blocked schedule
+        #[arg(long, default_value = "nudge")]
+        mode: String,
+
+        /// Event title prefix (used mainly in visualize-sts)
+        #[arg(long, default_value = "Rewind: ")]
         prefix: String,
     },
 }
@@ -216,7 +223,14 @@ async fn main() -> Result<()> {
                     bail!("Google Calendar direct API support not enabled in this build.");
                 }
             }
-            CalendarCommand::PushGoogle { csv, limit, energy, calendar_id, prefix } => {
+            CalendarCommand::PushGoogle {
+                csv,
+                limit,
+                energy,
+                calendar_id,
+                mode,
+                prefix,
+            } => {
                 let profile = state::read_profile()?;
                 let tz: chrono_tz::Tz = profile
                     .timezone
@@ -224,19 +238,26 @@ async fn main() -> Result<()> {
                     .map_err(|_| anyhow::anyhow!("invalid timezone in profile.json: {}", profile.timezone))?;
 
                 let now = chrono::Utc::now();
-                let (ordered, events) = calendar_build_events(csv, limit, energy, &prefix, tz, now)?;
-                let _ = ordered; // reserved for future: print/reschedule diff
+
+                let (_ordered, events) = if mode == "visualize-sts" {
+                    calendar_build_events(csv, limit, energy, &prefix, tz, now)?
+                } else if mode == "nudge" {
+                    calendar_build_nudges(csv, limit, tz, now)?
+                } else {
+                    bail!("invalid --mode: {mode} (expected 'nudge' or 'visualize-sts')");
+                };
 
                 #[cfg(feature = "gcal")]
                 {
                     let summary = google_calendar::push_events(&calendar_id, &events).await?;
                     println!(
-                        "Pushed schedule to Google Calendar '{}' (created {}, updated {})",
+                        "Pushed to Google Calendar '{}' (created {}, updated {})",
                         calendar_id, summary.created, summary.updated
                     );
                 }
                 #[cfg(not(feature = "gcal"))]
                 {
+                    let _ = calendar_id;
                     bail!("Google Calendar direct API support not enabled in this build. Reinstall with: cargo install --path rewind-cli --locked --features gcal");
                 }
             }
@@ -403,6 +424,17 @@ fn calendar_build_events(
 
     let events = calendar::tasks_to_timeblocks_with_horizon(&ordered, &horizons, tz, now, prefix);
     Ok((ordered, events))
+}
+
+fn calendar_build_nudges(
+    csv: Option<PathBuf>,
+    _limit: usize,
+    tz: chrono_tz::Tz,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<(Vec<rewind_core::Task>, Vec<calendar::CalendarEvent>)> {
+    let csv_path = csv.unwrap_or_else(default_amex_csv);
+    let events = nudges::build_nudges_from_amex(&csv_path, tz, now)?;
+    Ok((vec![], events))
 }
 
 fn calendar_build_ics(csv: Option<PathBuf>, limit: usize, energy: i32, prefix: &str) -> Result<String> {
