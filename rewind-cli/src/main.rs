@@ -185,6 +185,12 @@ enum AuthCommand {
 
     /// Paste and store an OpenAI API key into ~/.rewind/auth.json
     PasteOpenaiApiKey,
+
+    /// OpenAI OAuth login (velocity path): uses an installed CLI to authenticate.
+    ///
+    /// Rewind does not yet extract OAuth tokens from the CLI's local store.
+    /// This command is a guided login step to make setup feel seamless.
+    OpenaiOauth,
 }
 
 #[tokio::main]
@@ -350,6 +356,9 @@ async fn main() -> Result<()> {
             }
             AuthCommand::PasteOpenaiApiKey => {
                 auth::openai_paste_api_key()?;
+            }
+            AuthCommand::OpenaiOauth => {
+                auth::openai_oauth()?;
             }
         },
     }

@@ -236,6 +236,9 @@ fn chat_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
                         log.append("user", &trimmed)?;
 
                         if let Some(reply) = handle_slash(&trimmed) {
+                            if reply == "__QUIT__" {
+                                break;
+                            }
                             messages.push(Msg {
                                 role: Role::Assistant,
                                 content: reply.clone(),
@@ -297,9 +300,11 @@ fn handle_slash(input: &str) -> Option<String> {
 - /goals (how to add goals)\n\
 - /statements (how to add statements)\n\
 - /reminders (coming soon)\n\
+- /quit\n\
 \nShortcuts: Enter=send, q=quit, ?=toggle help"
                 .to_string(),
         ),
+        "/quit" => Some("__QUIT__".to_string()),
         "/status" => Some("Status: chat logs are saved daily under ~/.rewind/chat/YYYY-MM-DD.md".to_string()),
         "/calendar" => Some(
             "Calendar:\n\

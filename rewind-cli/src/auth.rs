@@ -65,6 +65,64 @@ pub fn openai_paste_api_key() -> Result<()> {
     Ok(())
 }
 
+/// Velocity OAuth path.
+///
+/// For now, Rewind uses an installed CLI to guide a user through OAuth.
+/// We intentionally do not attempt to scrape tokens from the CLI's local store yet.
+///
+/// Supported (best effort):
+/// - `codex` CLI (OpenAI Codex)
+/// - fallback: OpenClaw login helper (if installed)
+pub fn openai_oauth() -> Result<()> {
+    // Try Codex CLI first
+    if which::which("codex").is_ok() {
+        println!("Launching OpenAI Codex login…");
+        let status = std::process::Command::new("codex")
+            .arg("login")
+            .stdin(std::process::Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .status();
+
+        match status {
+            Err(e) => return Err(e).context("running codex login"),
+            Ok(s) if !s.success() => bail!("codex login failed: {s}"),
+            Ok(_) => {
+                println!("\nLogin complete. Next: add your OpenAI API key for streaming chat:");
+                println!("  rewind auth paste-openai-api-key");
+                return Ok(());
+            }
+        }
+    }
+
+    // Optional fallback: OpenClaw auth helper
+    if which::which("openclaw").is_ok() {
+        println!("Codex CLI not found; using OpenClaw login helper…");
+        let status = std::process::Command::new("openclaw")
+            .args(["models", "auth", "login", "--provider", "openai-codex"])
+            .stdin(std::process::Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .status();
+
+        match status {
+            Err(e) => return Err(e).context("running openclaw models auth login"),
+            Ok(s) if !s.success() => bail!("openclaw login failed: {s}"),
+            Ok(_) => {
+                println!("\nLogin complete. Next: add your OpenAI API key for streaming chat:");
+                println!("  rewind auth paste-openai-api-key");
+                return Ok(());
+            }
+        }
+    }
+
+    bail!(
+        "No supported OAuth helper found.\n\
+Install Codex CLI then run: rewind auth openai-oauth\n\
+Or skip OAuth and paste an API key: rewind auth paste-openai-api-key"
+    )
+}
+
 pub fn claude_setup_token() -> Result<()> {
     // We intentionally do NOT depend on OpenClaw.
     // This uses the Claude Code CLI when installed.
