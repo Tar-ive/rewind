@@ -17,6 +17,12 @@ use google_calendar3::oauth2;
 pub struct GoogleOAuthClient {
     pub client_id: String,
     pub client_secret: String,
+    /// Defaults to https://accounts.google.com/o/oauth2/auth
+    pub auth_uri: Option<String>,
+    /// Defaults to https://oauth2.googleapis.com/token
+    pub token_uri: Option<String>,
+    /// Defaults to ["http://localhost"]
+    pub redirect_uris: Option<Vec<String>>,
 }
 
 fn oauth_client_path() -> Result<PathBuf> {
@@ -69,6 +75,9 @@ pub async fn connect_interactive() -> Result<()> {
     let client = GoogleOAuthClient {
         client_id,
         client_secret,
+        auth_uri: Some("https://accounts.google.com/o/oauth2/auth".to_string()),
+        token_uri: Some("https://oauth2.googleapis.com/token".to_string()),
+        redirect_uris: Some(vec!["http://localhost".to_string()]),
     };
 
     save_oauth_client(&client)?;
@@ -85,6 +94,18 @@ async fn hub_from_client(client: &GoogleOAuthClient) -> Result<CalendarHub<Https
     let installed = oauth2::ApplicationSecret {
         client_id: client.client_id.clone(),
         client_secret: client.client_secret.clone(),
+        auth_uri: client
+            .auth_uri
+            .clone()
+            .unwrap_or_else(|| "https://accounts.google.com/o/oauth2/auth".to_string()),
+        token_uri: client
+            .token_uri
+            .clone()
+            .unwrap_or_else(|| "https://oauth2.googleapis.com/token".to_string()),
+        redirect_uris: client
+            .redirect_uris
+            .clone()
+            .unwrap_or_else(|| vec!["http://localhost".to_string()]),
         ..Default::default()
     };
 
