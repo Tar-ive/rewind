@@ -68,42 +68,51 @@ pub fn build_nudges_from_amex(
         chosen[2] = (tag, format!("Plan: {} (10 min)", goal_name), 10);
     }
 
-    // Schedule at 19:30 local (or next quarter-hour if already past).
+    // Schedule nudges in 3 separate windows to avoid "stacked" feeling.
+    // Defaults: 10:00, 15:00, 19:30 local.
     let local = now_utc.with_timezone(&tz);
     let day = local.date_naive();
-    let mut start_local = tz
-        .from_local_datetime(&day.and_hms_opt(19, 30, 0).unwrap())
-        .single()
-        .unwrap();
 
-    // If it's already late, start next quarter hour.
-    if local > start_local {
-        let minute = local.minute();
-        let add = match minute % 15 {
-            0 => 0,
-            r => 15 - r,
-        };
-        start_local = (local + Duration::minutes(add.into()))
-            .with_second(0)
-            .unwrap()
-            .with_nanosecond(0)
-            .unwrap();
+    let slots = [
+        day.and_hms_opt(10, 0, 0).unwrap(),
+        day.and_hms_opt(15, 0, 0).unwrap(),
+        day.and_hms_opt(19, 30, 0).unwrap(),
+    ];
+
+    let mut start_locals: Vec<DateTime<Tz>> = slots
+        .iter()
+        .map(|t| tz.from_local_datetime(t).single().unwrap())
+        .collect();
+
+    // If a slot is in the past, bump it to next quarter-hour from now.
+    for s in start_locals.iter_mut() {
+        if local > *s {
+            let minute = local.minute();
+            let add = match minute % 15 {
+                0 => 0,
+                r => 15 - r,
+            };
+            *s = (local + Duration::minutes(add.into()))
+                .with_second(0)
+                .unwrap()
+                .with_nanosecond(0)
+                .unwrap();
+        }
     }
 
-    let mut cursor = start_local;
     let mut events = Vec::new();
 
     for (idx, (tag, title, minutes)) in chosen.into_iter().take(3).enumerate() {
-        let end = cursor + Duration::minutes(minutes.into());
+        let start = *start_locals.get(idx).unwrap_or(&local);
+        let end = start + Duration::minutes(minutes.into());
         events.push(calendar::CalendarEvent {
-            task_id: format!("nudge-{}-{}", cursor.format("%Y%m%d"), idx),
+            task_id: format!("nudge-{}-{}", start.format("%Y%m%d"), idx),
             horizon: tag,
-            start_utc: cursor.with_timezone(&Utc),
+            start_utc: start.with_timezone(&Utc),
             end_utc: end.with_timezone(&Utc),
             summary: format!("Rewind Nudge: {}", title),
             description: "Small step. Mark done by adding ' - done' to the title.".to_string(),
         });
-        cursor = end;
     }
 
     Ok(events)

@@ -20,6 +20,10 @@ chrono = { workspace = true }
 chrono-tz = { workspace = true }
 which = "7.0"
 
+# TUI
+ratatui = "0.29"
+crossterm = "0.28"
+
 # Google Calendar direct integration (optional feature: gcal)
 hyper = { version = "0.14", features = ["client", "http1", "http2"], optional = true }
 hyper-rustls = { version = "0.24", optional = true }

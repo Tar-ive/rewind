@@ -8,6 +8,7 @@ mod calendar;
 #[cfg(feature = "gcal")]
 mod google_calendar;
 mod nudges;
+mod chat;
 mod onboard;
 mod setup;
 mod state;
@@ -35,11 +36,14 @@ enum Command {
         limit: usize,
     },
 
-    /// Create time-blocked calendar events from the current plan/schedule
+    /// Create calendar nudges or visualize the schedule
     Calendar {
         #[command(subcommand)]
         command: CalendarCommand,
     },
+
+    /// Interactive TUI chat with your Rewind wellwisher
+    Chat,
 
     /// Finance-related commands
     Finance {
@@ -193,7 +197,13 @@ async fn main() -> Result<()> {
             plan_day(csv, limit)?;
         }
 
+        Command::Chat => {
+            chat::run_chat()?;
+        }
+
         Command::Calendar { command } => match command {
+            // Note: calendar push prints a summary below.
+        
             CalendarCommand::ExportIcs { csv, limit, energy, prefix } => {
                 let ics = calendar_build_ics(csv, limit, energy, &prefix)?;
                 print!("{}", ics);
@@ -254,6 +264,14 @@ async fn main() -> Result<()> {
                         "Pushed to Google Calendar '{}' (created {}, updated {})",
                         calendar_id, summary.created, summary.updated
                     );
+                    for e in &events {
+                        println!(
+                            "- {}  [{} → {}]",
+                            e.summary,
+                            e.start_utc.to_rfc3339(),
+                            e.end_utc.to_rfc3339()
+                        );
+                    }
                 }
                 #[cfg(not(feature = "gcal"))]
                 {
