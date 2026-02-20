@@ -5,6 +5,8 @@ use std::path::PathBuf;
 
 mod auth;
 mod calendar;
+#[cfg(feature = "gcal")]
+mod google_calendar;
 mod onboard;
 mod setup;
 mod state;
@@ -78,7 +80,7 @@ enum CalendarCommand {
         prefix: String,
     },
 
-    /// Push calendar events to Google Calendar using gcalcli import
+    /// Push calendar events to Google Calendar using gcalcli import (optional fallback)
     PushGcalcli {
         /// AMEX CSV to derive finance tasks (optional)
         #[arg(long)]
@@ -95,6 +97,32 @@ enum CalendarCommand {
         /// Target calendar name (optional)
         #[arg(long)]
         calendar: Option<String>,
+
+        /// Event title prefix
+        #[arg(long, default_value = "Rewind: STS: ")]
+        prefix: String,
+    },
+
+    /// Connect Rewind to Google Calendar via OAuth (direct API)
+    Connect,
+
+    /// Push time-blocked events via the Google Calendar API (direct API)
+    PushGoogle {
+        /// AMEX CSV to derive finance tasks (optional)
+        #[arg(long)]
+        csv: Option<PathBuf>,
+
+        /// Number of finance tasks to schedule
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+
+        /// Energy level (1-5)
+        #[arg(long, default_value_t = 5)]
+        energy: i32,
+
+        /// Calendar ID (default: primary)
+        #[arg(long, default_value = "primary")]
+        calendar_id: String,
 
         /// Event title prefix
         #[arg(long, default_value = "Rewind: STS: ")]
@@ -159,6 +187,36 @@ async fn main() -> Result<()> {
             CalendarCommand::PushGcalcli { csv, limit, energy, calendar: cal, prefix } => {
                 let ics = calendar_build_ics(csv, limit, energy, &prefix)?;
                 calendar::push_ics_via_gcalcli(&ics, cal.as_deref())?;
+            }
+            CalendarCommand::Connect => {
+                #[cfg(feature = "gcal")]
+                {
+                    google_calendar::connect_interactive().await?;
+                }
+                #[cfg(not(feature = "gcal"))]
+                {
+                    bail!("Google Calendar direct API support not enabled in this build. Reinstall with: cargo install --path rewind-cli --locked --features gcal");
+                }
+            }
+            CalendarCommand::PushGoogle { csv, limit, energy, calendar_id, prefix } => {
+                let profile = state::read_profile()?;
+                let tz: chrono_tz::Tz = profile
+                    .timezone
+                    .parse()
+                    .map_err(|_| anyhow::anyhow!("invalid timezone in profile.json: {}", profile.timezone))?;
+
+                let now = chrono::Utc::now();
+                let (ordered, events) = calendar_build_events(csv, limit, energy, &prefix, tz, now)?;
+                let _ = ordered; // reserved for future: print/reschedule diff
+
+                #[cfg(feature = "gcal")]
+                {
+                    google_calendar::push_events(&calendar_id, &events).await?;
+                }
+                #[cfg(not(feature = "gcal"))]
+                {
+                    bail!("Google Calendar direct API support not enabled in this build. Reinstall with: cargo install --path rewind-cli --locked --features gcal");
+                }
             }
         },
 
@@ -240,13 +298,14 @@ fn default_amex_csv() -> PathBuf {
     PathBuf::from("amex.csv")
 }
 
-fn calendar_build_ics(csv: Option<PathBuf>, limit: usize, energy: i32, prefix: &str) -> Result<String> {
-    let profile = state::read_profile()?;
-    let tz: chrono_tz::Tz = profile
-        .timezone
-        .parse()
-        .map_err(|_| anyhow::anyhow!("invalid timezone in profile.json: {}", profile.timezone))?;
-
+fn calendar_build_events(
+    csv: Option<PathBuf>,
+    limit: usize,
+    energy: i32,
+    prefix: &str,
+    tz: chrono_tz::Tz,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<(Vec<rewind_core::Task>, Vec<calendar::CalendarEvent>)> {
     // Use finance tasks from AMEX as our initial task source.
     // Later we will merge: deadlines + goal-derived tasks + finance + other signals.
     let csv_path = csv.unwrap_or_else(default_amex_csv);
@@ -259,7 +318,6 @@ fn calendar_build_ics(csv: Option<PathBuf>, limit: usize, energy: i32, prefix: &
     let finance_tasks = TaskEmitter::emit(&txns);
 
     // Convert into core Tasks, enqueue into STS, then order.
-    let now = chrono::Utc::now();
     let mut sts = rewind_core::ShortTermScheduler::new();
 
     for (i, ft) in finance_tasks.iter().take(limit).enumerate() {
@@ -300,6 +358,18 @@ fn calendar_build_ics(csv: Option<PathBuf>, limit: usize, energy: i32, prefix: &
 
     let ordered = calendar::order_tasks_via_sts(sts, energy);
     let events = calendar::tasks_to_timeblocks(&ordered, tz, now, prefix);
+    Ok((ordered, events))
+}
+
+fn calendar_build_ics(csv: Option<PathBuf>, limit: usize, energy: i32, prefix: &str) -> Result<String> {
+    let profile = state::read_profile()?;
+    let tz: chrono_tz::Tz = profile
+        .timezone
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid timezone in profile.json: {}", profile.timezone))?;
+    let now = chrono::Utc::now();
+
+    let (_ordered, events) = calendar_build_events(csv, limit, energy, prefix, tz, now)?;
     Ok(calendar::events_to_ics(&events))
 }
 
