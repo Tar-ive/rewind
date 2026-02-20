@@ -40,10 +40,18 @@ pub fn default_config() -> Result<Option<LlmConfig>> {
 }
 
 pub fn chat_complete(config: &LlmConfig, system: &str, turns: &[ChatTurn]) -> Result<String> {
-    // Keep the TUI synchronous for now.
-    // (Later: background task + streaming.)
-    let rt = tokio::runtime::Runtime::new().context("create tokio runtime")?;
-    rt.block_on(async { chat_complete_async(config, system, turns).await })
+    // The CLI uses #[tokio::main], so we're often already inside a runtime.
+    // Creating a nested runtime and calling block_on will panic.
+    //
+    // Strategy:
+    // - If a runtime is already running: use block_in_place + Handle::block_on
+    // - Otherwise: create a runtime and block_on
+    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        tokio::task::block_in_place(|| handle.block_on(async { chat_complete_async(config, system, turns).await }))
+    } else {
+        let rt = tokio::runtime::Runtime::new().context("create tokio runtime")?;
+        rt.block_on(async { chat_complete_async(config, system, turns).await })
+    }
 }
 
 async fn chat_complete_async(config: &LlmConfig, system: &str, turns: &[ChatTurn]) -> Result<String> {
