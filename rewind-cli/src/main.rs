@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use rewind_finance::{amex_parser::parse_amex_csv, task_emitter::TaskEmitter};
