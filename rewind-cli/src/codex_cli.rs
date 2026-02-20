@@ -30,31 +30,24 @@ pub async fn stream_codex(
         prompt.push_str("\n\n");
     }
 
-    // Candidate commands to try.
-    // 1) codex agent -m <msg>
-    // 2) codex agent --message <msg>
-    // 3) codex -m <msg>
+    // Candidate commands to try (based on Codex CLI help):
+    // - `codex exec <PROMPT>` is the documented non-interactive entrypoint.
+    // - `codex <PROMPT>` also starts a session when no subcommand is provided.
+    //
+    // We pass `codex_args` (from ~/.rewind/config.toml) before the prompt so
+    // users can control model/profile/sandbox, e.g.:
+    //   codex_args = ["-m", "gpt-5-codex", "--full-auto"]
     let candidates: Vec<Vec<String>> = vec![
         {
             let mut v = Vec::new();
-            v.push("agent".to_string());
+            v.push("exec".to_string());
             v.extend_from_slice(codex_args);
-            v.push("-m".to_string());
-            v.push(prompt.clone());
-            v
-        },
-        {
-            let mut v = Vec::new();
-            v.push("agent".to_string());
-            v.extend_from_slice(codex_args);
-            v.push("--message".to_string());
             v.push(prompt.clone());
             v
         },
         {
             let mut v = Vec::new();
             v.extend_from_slice(codex_args);
-            v.push("-m".to_string());
             v.push(prompt.clone());
             v
         },
@@ -78,7 +71,7 @@ pub async fn stream_codex(
     if let Some(e) = last_err {
         bail!(
             "Failed to run codex CLI for streaming.\n\
-Tried: `{codex_command} agent -m ...` and similar.\n\
+Tried: `{codex_command} exec <prompt>` and `{codex_command} <prompt>`.\n\
 \nUnderlying error: {e}\n\
 \nFix: run `codex --help` and set llm.codex_args in ~/.rewind/config.toml (provider=codex-cli)."
         );
