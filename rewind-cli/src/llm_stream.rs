@@ -25,6 +25,16 @@ pub async fn stream_chat(
 
     match cfg.provider {
         Provider::OpenAI => stream_openai_compatible(cfg, system, turns, &cfg.base_url, &mut on_event).await,
+        Provider::CodexCli => {
+            let c = crate::config::load_config()?;
+            let cmd = c.llm.codex_command.unwrap_or_else(|| "codex".to_string());
+            let args = c.llm.codex_args.unwrap_or_default();
+            let turns2: Vec<(String, String)> = turns
+                .iter()
+                .map(|t| (t.role.clone(), t.content.clone()))
+                .collect();
+            crate::codex_cli::stream_codex(&cmd, &args, system, &turns2, &mut on_event).await
+        }
         Provider::Anthropic => {
             bail!("streaming for anthropic not implemented yet (next).")
         }

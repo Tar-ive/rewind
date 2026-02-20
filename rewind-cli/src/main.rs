@@ -12,6 +12,7 @@ mod nudges;
 mod chat;
 mod llm;
 mod llm_stream;
+mod codex_cli;
 mod chat_worker;
 mod onboard;
 mod setup;

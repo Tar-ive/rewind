@@ -17,6 +17,11 @@ pub struct LlmSection {
     pub model: String,
     pub base_url: String,
     pub temperature: f32,
+
+    /// For provider = "codex-cli": command to execute (default: "codex")
+    pub codex_command: Option<String>,
+    /// For provider = "codex-cli": extra args to pass before the message (optional)
+    pub codex_args: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +39,8 @@ impl Default for Config {
                 model: "openai-codex/gpt-5.1".to_string(),
                 base_url: "https://api.openai.com".to_string(),
                 temperature: 0.4,
+                codex_command: Some("codex".to_string()),
+                codex_args: None,
             },
             chat: ChatSection {
                 stream: true,

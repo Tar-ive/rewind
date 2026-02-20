@@ -8,6 +8,7 @@ use crate::auth;
 pub enum Provider {
     Anthropic,
     OpenAI,
+    CodexCli,
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +33,7 @@ pub fn default_config() -> Result<Option<LlmConfig>> {
         "anthropic" => Provider::Anthropic,
         "openai" => Provider::OpenAI,
         "openrouter" => Provider::OpenAI, // OpenAI-compatible for now
+        "codex-cli" => Provider::CodexCli,
         other => {
             return Err(anyhow::anyhow!("unknown llm.provider: {other}"));
         }
@@ -41,6 +43,9 @@ pub fn default_config() -> Result<Option<LlmConfig>> {
     match provider {
         Provider::Anthropic if a.anthropic_token.is_none() => return Ok(None),
         Provider::OpenAI if a.openai_api_key.is_none() => return Ok(None),
+        Provider::CodexCli => {
+            // no API key required; relies on `codex login`
+        }
         _ => {}
     }
 
@@ -71,6 +76,9 @@ async fn chat_complete_async(config: &LlmConfig, system: &str, turns: &[ChatTurn
     match config.provider {
         Provider::Anthropic => anthropic_complete(&config.model, system, turns).await,
         Provider::OpenAI => openai_complete(&config.model, system, turns).await,
+        Provider::CodexCli => {
+            bail!("non-streaming Codex CLI path not implemented; use streaming chat")
+        }
     }
 }
 
