@@ -201,35 +201,85 @@ pub struct PushSummary {
 }
 
 pub async fn push_events(calendar_id: &str, events: &[CalendarEvent]) -> Result<PushSummary> {
+    use chrono::{Duration, TimeZone};
+    use chrono_tz::Tz;
+
     let client = load_oauth_client()?;
     let hub = hub_from_client(&client).await?;
+
+    // We manage a deterministic window: "today" in the user's timezone.
+    // Anything previously created by Rewind in that window but not in the new schedule
+    // gets moved to an end-of-day "graveyard" and marked CANCELLED.
+    let profile = crate::state::read_profile()?;
+    let tz: Tz = profile
+        .timezone
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid timezone in profile.json: {}", profile.timezone))?;
+
+    let now_utc = chrono::Utc::now();
+    let now_local = now_utc.with_timezone(&tz);
+    let day = now_local.date_naive();
+
+    let day_start_local = tz
+        .from_local_datetime(&day.and_hms_opt(0, 0, 0).unwrap())
+        .single()
+        .unwrap();
+    let day_end_local = tz
+        .from_local_datetime(&day.and_hms_opt(23, 59, 59).unwrap())
+        .single()
+        .unwrap();
+
+    let time_min = day_start_local.with_timezone(&chrono::Utc);
+    let time_max = day_end_local.with_timezone(&chrono::Utc);
+
+    let (_resp, existing): (_, Events) = hub
+        .events()
+        .list(calendar_id)
+        .time_min(time_min)
+        .time_max(time_max)
+        .single_events(true)
+        .max_results(2500)
+        .doit()
+        .await
+        .with_context(|| format!("listing existing events for window {time_min}..{time_max}"))?;
+
+    // Map iCalUID -> (event_id, existing_summary)
+    let mut existing_map: std::collections::HashMap<String, (String, Option<String>)> =
+        std::collections::HashMap::new();
+    if let Some(items) = existing.items {
+        for ev in items {
+            if let (Some(uid), Some(id)) = (ev.i_cal_uid.clone(), ev.id.clone()) {
+                if uid.starts_with("rewind-") {
+                    existing_map.insert(uid, (id, ev.summary.clone()));
+                }
+            }
+        }
+    }
 
     let mut created = 0usize;
     let mut updated = 0usize;
 
+    let mut desired_uids: std::collections::HashSet<String> = std::collections::HashSet::new();
+
     for e in events {
         let uid = rewind_ical_uid(&e.task_id);
-
-        // Search by iCalUID; if found, update; else insert.
-        let (_resp, existing): (_, Events) = hub
-            .events()
-            .list(calendar_id)
-            .i_cal_uid(&uid)
-            .max_results(1)
-            .doit()
-            .await
-            .with_context(|| format!("query existing event by iCalUID {uid}"))?;
-
-        let existing_id = existing
-            .items
-            .as_ref()
-            .and_then(|items| items.first())
-            .and_then(|ev| ev.id.clone());
+        desired_uids.insert(uid.clone());
 
         let mut ev = Event::default();
-        ev.summary = Some(e.summary.clone());
+
+        // Preserve manual completion tag if user edited it in Google Calendar.
+        let done_suffix = " - done";
+        let summary = match existing_map.get(&uid).and_then(|(_, s)| s.clone()) {
+            Some(s) if s.trim_end().ends_with(done_suffix) => {
+                format!("{}{}", e.summary, done_suffix)
+            }
+            _ => e.summary.clone(),
+        };
+
+        ev.summary = Some(summary);
         ev.description = Some(e.description.clone());
         ev.i_cal_uid = Some(uid.clone());
+        ev.color_id = Some(color_id_for_horizon(e.horizon).to_string());
 
         let start = google_calendar3::api::EventDateTime {
             date_time: Some(e.start_utc),
@@ -244,9 +294,9 @@ pub async fn push_events(calendar_id: &str, events: &[CalendarEvent]) -> Result<
         ev.start = Some(start);
         ev.end = Some(end);
 
-        if let Some(event_id) = existing_id {
+        if let Some((event_id, _)) = existing_map.get(&uid) {
             hub.events()
-                .update(ev, calendar_id, &event_id)
+                .update(ev, calendar_id, event_id)
                 .doit()
                 .await
                 .with_context(|| format!("updating event {event_id} ({uid})"))?;
@@ -261,5 +311,63 @@ pub async fn push_events(calendar_id: &str, events: &[CalendarEvent]) -> Result<
         }
     }
 
+    // Cancel/move orphaned events into the graveyard.
+    // Graveyard starts at 23:00 local, stacked in 5-minute blocks.
+    let mut graveyard_cursor = tz
+        .from_local_datetime(&day.and_hms_opt(23, 0, 0).unwrap())
+        .single()
+        .unwrap();
+
+    for (uid, (event_id, existing_summary)) in existing_map.iter() {
+        if desired_uids.contains(uid) {
+            continue;
+        }
+
+        let mut ev = Event::default();
+        let base = existing_summary.clone().unwrap_or_else(|| uid.clone());
+        let new_summary = if base.starts_with("CANCELLED: ") {
+            base
+        } else {
+            format!("CANCELLED: {}", base)
+        };
+
+        ev.summary = Some(new_summary);
+        ev.status = Some("cancelled".to_string());
+        ev.i_cal_uid = Some(uid.clone());
+        ev.color_id = Some("8".to_string()); // a neutral/gray-ish color
+
+        let start_utc = graveyard_cursor.with_timezone(&chrono::Utc);
+        let end_utc = (graveyard_cursor + Duration::minutes(5)).with_timezone(&chrono::Utc);
+
+        ev.start = Some(google_calendar3::api::EventDateTime {
+            date_time: Some(start_utc),
+            time_zone: Some("UTC".to_string()),
+            ..Default::default()
+        });
+        ev.end = Some(google_calendar3::api::EventDateTime {
+            date_time: Some(end_utc),
+            time_zone: Some("UTC".to_string()),
+            ..Default::default()
+        });
+
+        hub.events()
+            .update(ev, calendar_id, event_id)
+            .doit()
+            .await
+            .with_context(|| format!("moving orphaned event {event_id} to graveyard"))?;
+
+        graveyard_cursor = graveyard_cursor + Duration::minutes(5);
+    }
+
     Ok(PushSummary { created, updated })
+}
+
+fn color_id_for_horizon(h: rewind_core::GoalTag) -> &'static str {
+    // Google Calendar colorId values are provider-defined. These are common defaults:
+    // 11 ~ red, 5 ~ yellow, 10 ~ green.
+    match h {
+        rewind_core::GoalTag::Short => "11",  // maroon/red
+        rewind_core::GoalTag::Medium => "5", // yellow
+        rewind_core::GoalTag::Long => "10",  // green
+    }
 }

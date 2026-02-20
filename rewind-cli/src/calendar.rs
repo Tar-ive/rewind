@@ -18,6 +18,7 @@ fn ceil_to_quarter_hour(dt: DateTime<Tz>) -> DateTime<Tz> {
 
 pub struct CalendarEvent {
     pub task_id: String,
+    pub horizon: rewind_core::GoalTag,
     pub start_utc: DateTime<Utc>,
     pub end_utc: DateTime<Utc>,
     pub summary: String,
@@ -33,17 +34,41 @@ pub fn tasks_to_timeblocks(
     now_utc: DateTime<Utc>,
     prefix: &str,
 ) -> Vec<CalendarEvent> {
+    tasks_to_timeblocks_with_horizon(
+        ordered,
+        &vec![rewind_core::GoalTag::Short; ordered.len()],
+        tz,
+        now_utc,
+        prefix,
+    )
+}
+
+/// Same as tasks_to_timeblocks, but allows callers to specify the horizon tag per task
+/// (Short/Medium/Long). This is used for Google Calendar color coding.
+pub fn tasks_to_timeblocks_with_horizon(
+    ordered: &[Task],
+    horizons: &[rewind_core::GoalTag],
+    tz: Tz,
+    now_utc: DateTime<Utc>,
+    prefix: &str,
+) -> Vec<CalendarEvent> {
     let mut events = Vec::new();
 
     let start_local = ceil_to_quarter_hour(now_utc.with_timezone(&tz));
     let mut cursor_local = start_local;
 
-    for t in ordered {
+    for (idx, t) in ordered.iter().enumerate() {
         let minutes = t.estimated_duration.max(10) as i64;
         let end_local = cursor_local + Duration::minutes(minutes);
 
+        let horizon = horizons
+            .get(idx)
+            .copied()
+            .unwrap_or(rewind_core::GoalTag::Short);
+
         events.push(CalendarEvent {
             task_id: t.id.clone(),
+            horizon,
             start_utc: cursor_local.with_timezone(&Utc),
             end_utc: end_local.with_timezone(&Utc),
             summary: format!("{}{}", prefix, t.title),

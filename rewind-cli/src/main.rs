@@ -364,7 +364,13 @@ fn calendar_build_events(
             title.push_str(&ft.sample_descriptions.join(" ; "));
         }
 
-        let mut t = rewind_core::Task::new(format!("cal-{:04}", i), title)
+        let suffix = match ft.goal_tag {
+            rewind_core::GoalTag::Short => "-S",
+            rewind_core::GoalTag::Medium => "-M",
+            rewind_core::GoalTag::Long => "-L",
+        };
+
+        let mut t = rewind_core::Task::new(format!("cal-{:04}{}", i, suffix), title)
             .with_duration(minutes)
             .with_energy(energy_cost)
             .with_cognitive(cognitive_load)
@@ -379,7 +385,23 @@ fn calendar_build_events(
     }
 
     let ordered = calendar::order_tasks_via_sts(sts, energy);
-    let events = calendar::tasks_to_timeblocks(&ordered, tz, now, prefix);
+
+    // Preserve per-task horizon for calendar color coding.
+    let mut horizons: Vec<rewind_core::GoalTag> = Vec::new();
+    for t in &ordered {
+        // We embed the horizon into the task id prefix for now: cal-XXXX-S/M/L.
+        // If missing, default to Short.
+        let h = if t.id.contains("-M") {
+            rewind_core::GoalTag::Medium
+        } else if t.id.contains("-L") {
+            rewind_core::GoalTag::Long
+        } else {
+            rewind_core::GoalTag::Short
+        };
+        horizons.push(h);
+    }
+
+    let events = calendar::tasks_to_timeblocks_with_horizon(&ordered, &horizons, tz, now, prefix);
     Ok((ordered, events))
 }
 
