@@ -19,6 +19,7 @@ mod chat_worker;
 mod onboard;
 mod setup;
 mod state;
+mod reminders_cmd;
 
 #[derive(Parser, Debug)]
 #[command(name = "rewind", version, about = "Rewind Rust-native CLI")]
@@ -71,6 +72,12 @@ enum Command {
     Auth {
         #[command(subcommand)]
         command: AuthCommand,
+    },
+
+    /// Reminder queue operations
+    Reminders {
+        #[command(subcommand)]
+        command: reminders_cmd::RemindersCommand,
     },
 }
 
@@ -372,6 +379,10 @@ async fn main() -> Result<()> {
                 auth::openai_oauth()?;
             }
         },
+
+        Command::Reminders { command } => {
+            reminders_cmd::run(command)?;
+        }
     }
 
     Ok(())
