@@ -33,6 +33,15 @@ pub enum RemindersCommand {
         #[arg(long, default_value_t = 20)]
         limit: usize,
     },
+
+    /// Send a single iMessage reminder immediately (macOS only)
+    SendImessage {
+        #[arg(long)]
+        to: String,
+
+        #[arg(long)]
+        text: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +55,7 @@ pub fn run(cmd: RemindersCommand) -> Result<()> {
     match cmd {
         RemindersCommand::Plan { to, channel, limit } => plan(&to, &channel, limit),
         RemindersCommand::List { limit } => list(limit),
+        RemindersCommand::SendImessage { to, text } => send_imessage(&to, &text),
     }
 }
 
@@ -152,4 +162,75 @@ fn list(limit: usize) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn send_imessage(to: &str, text: &str) -> Result<()> {
+    if !cfg!(target_os = "macos") {
+        anyhow::bail!("iMessage delivery is macOS-only");
+    }
+
+    if !is_valid_imessage_target(to) {
+        anyhow::bail!(
+            "Invalid iMessage target: must be E.164 phone (+1234567890) or email user@example.com"
+        );
+    }
+
+    let escaped_to = escape_applescript(to);
+    let escaped_text = escape_applescript(text);
+
+    let script = format!(
+        r#"tell application "Messages"
+    set targetService to 1st account whose service type = iMessage
+    set targetBuddy to participant "{escaped_to}" of targetService
+    send "{escaped_text}" to targetBuddy
+end tell"#
+    );
+
+    let output = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(&script)
+        .output()
+        .context("running osascript")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("iMessage send failed: {stderr}");
+    }
+
+    println!("Sent iMessage to {to}");
+    Ok(())
+}
+
+fn escape_applescript(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+}
+
+fn is_valid_imessage_target(target: &str) -> bool {
+    let target = target.trim();
+    if target.is_empty() {
+        return false;
+    }
+
+    if target.starts_with('+') {
+        let digits: String = target.chars().filter(char::is_ascii_digit).collect();
+        return (7..=15).contains(&digits.len());
+    }
+
+    if let Some(at) = target.find('@') {
+        let local = &target[..at];
+        let domain = &target[at + 1..];
+        let local_ok =
+            !local.is_empty() && local.chars().all(|c| c.is_alphanumeric() || "._+-".contains(c));
+        let domain_ok = !domain.is_empty()
+            && domain.contains('.')
+            && domain
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '-' || c == '.');
+        return local_ok && domain_ok;
+    }
+
+    false
 }
