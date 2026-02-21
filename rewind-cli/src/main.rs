@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use anyhow::{bail, Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use rewind_finance::{amex_parser::parse_amex_csv, task_emitter::TaskEmitter};
 use std::path::PathBuf;
 
@@ -24,8 +24,12 @@ mod reminders_cmd;
 #[derive(Parser, Debug)]
 #[command(name = "rewind", version, about = "Rewind Rust-native CLI")]
 struct Cli {
+    /// Print build git SHA and exit
+    #[arg(long, default_value_t = false)]
+    build_sha: bool,
+
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -211,7 +215,19 @@ enum AuthCommand {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
+    if cli.build_sha {
+        println!("{}", env!("REWIND_BUILD_SHA"));
+        return Ok(());
+    }
+
+    let Some(command) = cli.command else {
+        let mut cmd = Cli::command();
+        cmd.print_help().ok();
+        println!();
+        return Ok(());
+    };
+
+    match command {
         Command::Setup => {
             setup::run_setup()?;
         }
