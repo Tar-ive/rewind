@@ -29,8 +29,7 @@ pub use mts_task_buffer::handle_swap_in_buffer;
 pub use reminders::{project_task_reminders, ReminderIntent, ReminderPolicy, ReminderSource};
 pub use scheduler_kernel::{
     ContextSentinel, DisruptionDetector, EnergyProvider, ProfilerProvider, SchedulerKernel,
-    ContextChangeEvent, ContextSource, DisruptionEvent, DisruptionSeverity, UpdatedSchedule,
-    DelegationQueue, DelegationItem, DelegationChannel, DraftType, KernelOutput, ProfileSnapshot,
+    KernelOutput, ProfileSnapshot,
 };
 pub use disruption::{
     ContextChangeEvent,
