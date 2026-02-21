@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::{Duration, Utc};
+use std::collections::HashSet;
 use clap::Subcommand;
 use rewind_core::{
     Horizon, Priority, ReminderIntent, ReminderPolicy, ReminderSource, Task, parse_goals_md,
@@ -42,6 +43,17 @@ pub enum RemindersCommand {
         #[arg(long)]
         text: String,
     },
+
+    /// Dispatch due reminder intents from queue
+    Dispatch {
+        /// Dry-run only; do not actually send
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+
+        /// Max sends in one run
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,11 +68,16 @@ pub fn run(cmd: RemindersCommand) -> Result<()> {
         RemindersCommand::Plan { to, channel, limit } => plan(&to, &channel, limit),
         RemindersCommand::List { limit } => list(limit),
         RemindersCommand::SendImessage { to, text } => send_imessage(&to, &text),
+        RemindersCommand::Dispatch { dry_run, limit } => dispatch(dry_run, limit),
     }
 }
 
 fn queue_path() -> Result<std::path::PathBuf> {
     Ok(ensure_rewind_home()?.join("reminders").join("intents.jsonl"))
+}
+
+fn sent_keys_path() -> Result<std::path::PathBuf> {
+    Ok(ensure_rewind_home()?.join("reminders").join("sent_keys.txt"))
 }
 
 fn plan(to: &str, channel: &str, limit: usize) -> Result<()> {
@@ -161,6 +178,80 @@ fn list(limit: usize) -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+fn dispatch(dry_run: bool, limit: usize) -> Result<()> {
+    let q = queue_path()?;
+    if !q.exists() {
+        println!("No reminder queue at {}", q.display());
+        return Ok(());
+    }
+
+    let sk = sent_keys_path()?;
+    if let Some(parent) = sk.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+    }
+
+    let sent_keys: HashSet<String> = if sk.exists() {
+        let f = fs::File::open(&sk)?;
+        BufReader::new(f)
+            .lines()
+            .filter_map(|l| l.ok())
+            .collect::<HashSet<_>>()
+    } else {
+        HashSet::new()
+    };
+
+    let f = fs::File::open(&q)?;
+    let reader = BufReader::new(f);
+
+    let now = Utc::now();
+    let mut due: Vec<QueuedIntent> = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        if let Ok(v) = serde_json::from_str::<QueuedIntent>(&line) {
+            if v.intent.send_at_utc <= now && !sent_keys.contains(&v.intent.dedupe_key) {
+                due.push(v);
+            }
+        }
+    }
+
+    if due.is_empty() {
+        println!("No due unsent reminders.");
+        return Ok(());
+    }
+
+    let mut sent_now = 0usize;
+    let mut sent_log = OpenOptions::new().create(true).append(true).open(&sk)?;
+
+    for item in due.into_iter().take(limit) {
+        if dry_run {
+            println!(
+                "[DRY RUN] would send [{}] {} -> {}",
+                item.channel, item.intent.title, item.recipient
+            );
+            continue;
+        }
+
+        match item.channel.as_str() {
+            "imessage" => {
+                let text = format!("{}\n{}", item.intent.title, item.intent.body);
+                send_imessage(&item.recipient, &text)?;
+                writeln!(sent_log, "{}", item.intent.dedupe_key)?;
+                sent_now += 1;
+            }
+            other => {
+                println!("Skipping unsupported channel: {other}");
+            }
+        }
+    }
+
+    println!("Dispatch complete. Sent {} reminders.", sent_now);
     Ok(())
 }
 
