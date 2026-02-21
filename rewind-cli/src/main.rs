@@ -381,7 +381,7 @@ async fn main() -> Result<()> {
         },
 
         Command::Reminders { command } => {
-            reminders_cmd::run(command)?;
+            reminders_cmd::run(command).await?;
         }
     }
 

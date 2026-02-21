@@ -78,7 +78,7 @@ struct QueuedIntent {
     intent: ReminderIntent,
 }
 
-pub fn run(cmd: RemindersCommand) -> Result<()> {
+pub async fn run(cmd: RemindersCommand) -> Result<()> {
     match cmd {
         RemindersCommand::Plan {
             to,
@@ -92,7 +92,7 @@ pub fn run(cmd: RemindersCommand) -> Result<()> {
             dry_run,
             limit,
             include_future_minutes,
-        } => dispatch(dry_run, limit, include_future_minutes),
+        } => dispatch(dry_run, limit, include_future_minutes).await,
         RemindersCommand::Status => status(),
         RemindersCommand::ConfigCheck => config_check(),
     }
@@ -224,7 +224,11 @@ fn list(limit: usize) -> Result<()> {
     Ok(())
 }
 
-fn dispatch(dry_run: bool, limit: Option<usize>, include_future_minutes: Option<i64>) -> Result<()> {
+async fn dispatch(
+    dry_run: bool,
+    limit: Option<usize>,
+    include_future_minutes: Option<i64>,
+) -> Result<()> {
     let cfg = load_config()?;
     let resolved_limit = limit.unwrap_or(cfg.reminders.max_dispatch_per_run);
     let future_min = include_future_minutes.unwrap_or(cfg.reminders.include_future_minutes_default);
@@ -290,7 +294,7 @@ fn dispatch(dry_run: bool, limit: Option<usize>, include_future_minutes: Option<
             "imessage" => {
                 let text = format!("{}\n{}", item.intent.title, item.intent.body);
                 send_imessage(&item.recipient, &text)?;
-                maybe_log_sent_to_google_calendar(&item)?;
+                maybe_log_sent_to_google_calendar(&item).await?;
                 writeln!(sent_log, "{}", item.intent.dedupe_key)?;
                 sent_now += 1;
             }
@@ -400,7 +404,7 @@ fn config_check() -> Result<()> {
     Ok(())
 }
 
-fn maybe_log_sent_to_google_calendar(item: &QueuedIntent) -> Result<()> {
+async fn maybe_log_sent_to_google_calendar(item: &QueuedIntent) -> Result<()> {
     let cfg = load_config()?;
     if !cfg.reminders.google_calendar_log_enabled {
         return Ok(());
@@ -412,35 +416,24 @@ fn maybe_log_sent_to_google_calendar(item: &QueuedIntent) -> Result<()> {
         .as_deref()
         .unwrap_or("primary");
 
-    let gcal = match which::which("gcalcli") {
-        Ok(p) => p,
-        Err(_) => {
-            println!("gcalcli not found; skipping calendar reminder log");
-            return Ok(());
-        }
-    };
+    #[cfg(feature = "gcal")]
+    {
+        crate::google_calendar::log_reminder_send(
+            calendar,
+            &item.intent.task_id,
+            &item.recipient,
+            &item.channel,
+            &item.intent.title,
+            &item.intent.dedupe_key,
+        )
+        .await?;
+    }
 
-    let when = Utc::now().format("%Y-%m-%d %H:%M").to_string();
-    let title = format!("Missed reminder log: {}", item.intent.task_id);
-    let desc = format!(
-        "Sent reminder via {} to {}.\\nTitle: {}\\nDedupe: {}",
-        item.channel, item.recipient, item.intent.title, item.intent.dedupe_key
-    );
-
-    let output = std::process::Command::new(gcal)
-        .arg("add")
-        .args(["--calendar", calendar])
-        .args(["--title", &title])
-        .args(["--when", &when])
-        .args(["--duration", "5"])
-        .args(["--description", &desc])
-        .arg("--noprompt")
-        .output()
-        .context("running gcalcli add")?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        println!("Failed to log reminder in calendar: {stderr}");
+    #[cfg(not(feature = "gcal"))]
+    {
+        println!(
+            "Google calendar logging enabled, but this Rewind build lacks --features gcal. Skipping calendar log."
+        );
     }
 
     Ok(())

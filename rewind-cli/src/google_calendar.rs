@@ -1,6 +1,6 @@
-use anyhow::{bail, Context, Result};
-use google_calendar3::api::{Event, Events};
+use anyhow::{Context, Result, bail};
 use google_calendar3::CalendarHub;
+use google_calendar3::api::{Event, Events};
 use hyper::client::HttpConnector;
 use hyper_rustls::HttpsConnector;
 use serde::{Deserialize, Serialize};
@@ -66,8 +66,14 @@ pub fn calendar_status() -> Result<()> {
     let oauth_p = oauth_client_path()?;
     let token_p = token_cache_path()?;
     println!("Google Calendar status\n");
-    println!("OAuth config:  {}", if oauth_p.exists() { "OK" } else { "MISSING" });
-    println!("Token cache:  {}", if token_p.exists() { "OK" } else { "MISSING" });
+    println!(
+        "OAuth config:  {}",
+        if oauth_p.exists() { "OK" } else { "MISSING" }
+    );
+    println!(
+        "Token cache:  {}",
+        if token_p.exists() { "OK" } else { "MISSING" }
+    );
     println!("\nPaths:\n- {}\n- {}", oauth_p.display(), token_p.display());
     if !oauth_p.exists() {
         println!("\nNext: rewind calendar connect --client-json <path/to/client_secret.json>");
@@ -89,7 +95,9 @@ pub async fn connect_interactive(client_json: Option<PathBuf>) -> Result<()> {
 
     println!("Google Calendar connect\n");
     println!("Fast path: rewind calendar connect --client-json <client_secret.json>\n");
-    println!("Fallback (manual): paste client_id + client_secret from Google Cloud Console (Desktop app).\n");
+    println!(
+        "Fallback (manual): paste client_id + client_secret from Google Cloud Console (Desktop app).\n"
+    );
 
     let client_id = prompt("Paste client_id")?;
     let client_secret = prompt("Paste client_secret")?;
@@ -111,7 +119,10 @@ pub async fn connect_interactive(client_json: Option<PathBuf>) -> Result<()> {
     // Run OAuth flow (installed app) and cache token.
     let _hub = hub_from_client(&client).await?;
 
-    println!("\nConnected. Tokens cached at: {}", token_cache_path()?.display());
+    println!(
+        "\nConnected. Tokens cached at: {}",
+        token_cache_path()?.display()
+    );
     Ok(())
 }
 
@@ -120,10 +131,9 @@ async fn connect_from_google_json(path: &Path) -> Result<()> {
     let secrets: GoogleClientSecretsFile = serde_json::from_str(&s)
         .with_context(|| format!("parse google client secrets JSON: {}", path.display()))?;
 
-    let secret = secrets
-        .installed
-        .or(secrets.web)
-        .ok_or_else(|| anyhow::anyhow!("client secrets JSON missing 'installed' or 'web' section"))?;
+    let secret = secrets.installed.or(secrets.web).ok_or_else(|| {
+        anyhow::anyhow!("client secrets JSON missing 'installed' or 'web' section")
+    })?;
 
     let client = GoogleOAuthClient {
         client_id: secret.client_id,
@@ -135,12 +145,18 @@ async fn connect_from_google_json(path: &Path) -> Result<()> {
 
     save_oauth_client(&client)?;
 
-    println!("Saved OAuth client config to {}", oauth_client_path()?.display());
+    println!(
+        "Saved OAuth client config to {}",
+        oauth_client_path()?.display()
+    );
 
     // Run OAuth flow (installed app) and cache token.
     let _hub = hub_from_client(&client).await?;
 
-    println!("Connected. Tokens cached at: {}", token_cache_path()?.display());
+    println!(
+        "Connected. Tokens cached at: {}",
+        token_cache_path()?.display()
+    );
     Ok(())
 }
 
@@ -378,8 +394,53 @@ fn color_id_for_horizon(h: rewind_core::GoalTag) -> &'static str {
     // Google Calendar colorId values are provider-defined. These are common defaults:
     // 11 ~ red, 5 ~ yellow, 10 ~ green.
     match h {
-        rewind_core::GoalTag::Short => "11",  // maroon/red
+        rewind_core::GoalTag::Short => "11", // maroon/red
         rewind_core::GoalTag::Medium => "5", // yellow
         rewind_core::GoalTag::Long => "10",  // green
     }
+}
+
+pub async fn log_reminder_send(
+    calendar_id: &str,
+    task_id: &str,
+    recipient: &str,
+    channel: &str,
+    title: &str,
+    dedupe_key: &str,
+) -> Result<()> {
+    if !token_cache_exists()? {
+        bail!(
+            "Google calendar token cache missing. Run: rewind calendar connect --client-json <client_secret.json>"
+        );
+    }
+
+    let client = load_oauth_client()?;
+    let hub = hub_from_client(&client).await?;
+
+    let now = chrono::Utc::now();
+    let end = now + chrono::Duration::minutes(5);
+
+    let mut ev = Event::default();
+    ev.summary = Some(format!("Missed reminder log: {task_id}"));
+    ev.description = Some(format!(
+        "Reminder sent via {channel} to {recipient}.\nTitle: {title}\nDedupe: {dedupe_key}"
+    ));
+    ev.start = Some(google_calendar3::api::EventDateTime {
+        date_time: Some(now),
+        time_zone: Some("UTC".to_string()),
+        ..Default::default()
+    });
+    ev.end = Some(google_calendar3::api::EventDateTime {
+        date_time: Some(end),
+        time_zone: Some("UTC".to_string()),
+        ..Default::default()
+    });
+
+    hub.events()
+        .insert(ev, calendar_id)
+        .doit()
+        .await
+        .with_context(|| format!("logging reminder-send in calendar '{calendar_id}'"))?;
+
+    Ok(())
 }
