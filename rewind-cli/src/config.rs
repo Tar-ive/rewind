@@ -40,6 +40,9 @@ pub struct ReminderSection {
     pub default_channel: String,
     pub default_recipient: Option<String>,
     pub max_dispatch_per_run: usize,
+    pub include_future_minutes_default: i64,
+    pub google_calendar_log_enabled: bool,
+    pub google_calendar_id: Option<String>,
 }
 
 impl Default for LlmSection {
@@ -71,6 +74,9 @@ impl Default for ReminderSection {
             default_channel: "imessage".to_string(),
             default_recipient: None,
             max_dispatch_per_run: 10,
+            include_future_minutes_default: 0,
+            google_calendar_log_enabled: false,
+            google_calendar_id: None,
         }
     }
 }
