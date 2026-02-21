@@ -13,6 +13,8 @@ pub mod sts;
 pub mod mts;
 pub mod mts_task_buffer;
 pub mod reminders;
+pub mod scheduler_kernel;
+pub mod disruption;
 
 pub use finance::{FinanceRecord, Category, GoalTag};
 pub use goals::{GoalDescriptor, GoalTimeframe, ReadinessScore};
@@ -25,6 +27,20 @@ pub use sts::ShortTermScheduler;
 pub use mts::{SwapResult, handle_swap_in, handle_swap_out, maybe_delegate_low_energy};
 pub use mts_task_buffer::handle_swap_in_buffer;
 pub use reminders::{project_task_reminders, ReminderIntent, ReminderPolicy, ReminderSource};
+pub use scheduler_kernel::{
+    ContextSentinel, DisruptionDetector, EnergyProvider, ProfilerProvider, SchedulerKernel,
+    ContextChangeEvent, ContextSource, DisruptionEvent, DisruptionSeverity, UpdatedSchedule,
+    DelegationQueue, DelegationItem, DelegationChannel, DraftType, KernelOutput, ProfileSnapshot,
+};
+pub use disruption::{
+    ContextChangeEvent,
+    ContextSource,
+    DisruptionEvent,
+    DisruptionSeverity,
+    UpdatedSchedule,
+    DelegationQueue,
+    DelegationItem,
+};
 
 /// Utility for categorizing transaction descriptions
 pub mod categorizer {
