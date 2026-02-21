@@ -10,6 +10,7 @@ use crate::state::ensure_rewind_home;
 pub struct Config {
     pub llm: LlmSection,
     pub chat: ChatSection,
+    pub reminders: ReminderSection,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,6 +32,14 @@ pub struct LlmSection {
 pub struct ChatSection {
     pub stream: bool,
     pub max_turns_context: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ReminderSection {
+    pub default_channel: String,
+    pub default_recipient: Option<String>,
+    pub max_dispatch_per_run: usize,
 }
 
 impl Default for LlmSection {
@@ -56,11 +65,22 @@ impl Default for ChatSection {
     }
 }
 
+impl Default for ReminderSection {
+    fn default() -> Self {
+        Self {
+            default_channel: "imessage".to_string(),
+            default_recipient: None,
+            max_dispatch_per_run: 10,
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             llm: LlmSection::default(),
             chat: ChatSection::default(),
+            reminders: ReminderSection::default(),
         }
     }
 }

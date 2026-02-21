@@ -10,19 +10,20 @@ use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 
+use crate::config::load_config;
 use crate::state::{ensure_rewind_home, goals_path};
 
 #[derive(Subcommand, Debug)]
 pub enum RemindersCommand {
     /// Build reminder intents from goals and append to local queue
     Plan {
-        /// Delivery target (phone/email)
+        /// Delivery target (phone/email). If omitted, uses config.reminders.default_recipient
         #[arg(long)]
-        to: String,
+        to: Option<String>,
 
-        /// Channel label (default: imessage)
-        #[arg(long, default_value = "imessage")]
-        channel: String,
+        /// Channel label (default: from config, fallback imessage)
+        #[arg(long)]
+        channel: Option<String>,
 
         /// Max reminders to generate
         #[arg(long, default_value_t = 10)]
@@ -50,10 +51,13 @@ pub enum RemindersCommand {
         #[arg(long, default_value_t = false)]
         dry_run: bool,
 
-        /// Max sends in one run
-        #[arg(long, default_value_t = 10)]
-        limit: usize,
+        /// Max sends in one run (default from config.reminders.max_dispatch_per_run)
+        #[arg(long)]
+        limit: Option<usize>,
     },
+
+    /// Show reminder-related config and what to set
+    ConfigCheck,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,10 +69,11 @@ struct QueuedIntent {
 
 pub fn run(cmd: RemindersCommand) -> Result<()> {
     match cmd {
-        RemindersCommand::Plan { to, channel, limit } => plan(&to, &channel, limit),
+        RemindersCommand::Plan { to, channel, limit } => plan(to, channel, limit),
         RemindersCommand::List { limit } => list(limit),
         RemindersCommand::SendImessage { to, text } => send_imessage(&to, &text),
         RemindersCommand::Dispatch { dry_run, limit } => dispatch(dry_run, limit),
+        RemindersCommand::ConfigCheck => config_check(),
     }
 }
 
@@ -80,7 +85,7 @@ fn sent_keys_path() -> Result<std::path::PathBuf> {
     Ok(ensure_rewind_home()?.join("reminders").join("sent_keys.txt"))
 }
 
-fn plan(to: &str, channel: &str, limit: usize) -> Result<()> {
+fn plan(to: Option<String>, channel: Option<String>, limit: usize) -> Result<()> {
     let gp = goals_path()?;
     let md = fs::read_to_string(&gp).with_context(|| format!("read {}", gp.display()))?;
     let goals = parse_goals_md(&md);
@@ -88,6 +93,12 @@ fn plan(to: &str, channel: &str, limit: usize) -> Result<()> {
     if goals.is_empty() {
         anyhow::bail!("no goals found in {}", gp.display());
     }
+
+    let cfg = load_config()?;
+    let resolved_to = to
+        .or(cfg.reminders.default_recipient.clone())
+        .ok_or_else(|| anyhow::anyhow!("No recipient set. Pass --to or set config.toml [reminders].default_recipient"))?;
+    let resolved_channel = channel.unwrap_or(cfg.reminders.default_channel.clone());
 
     let now = Utc::now();
     let policy = ReminderPolicy::default();
@@ -120,8 +131,8 @@ fn plan(to: &str, channel: &str, limit: usize) -> Result<()> {
                 break;
             }
             emitted.push(QueuedIntent {
-                recipient: to.to_string(),
-                channel: channel.to_string(),
+                recipient: resolved_to.clone(),
+                channel: resolved_channel.clone(),
                 intent: ri,
             });
         }
@@ -181,7 +192,10 @@ fn list(limit: usize) -> Result<()> {
     Ok(())
 }
 
-fn dispatch(dry_run: bool, limit: usize) -> Result<()> {
+fn dispatch(dry_run: bool, limit: Option<usize>) -> Result<()> {
+    let cfg = load_config()?;
+    let resolved_limit = limit.unwrap_or(cfg.reminders.max_dispatch_per_run);
+
     let q = queue_path()?;
     if !q.exists() {
         println!("No reminder queue at {}", q.display());
@@ -229,7 +243,7 @@ fn dispatch(dry_run: bool, limit: usize) -> Result<()> {
     let mut sent_now = 0usize;
     let mut sent_log = OpenOptions::new().create(true).append(true).open(&sk)?;
 
-    for item in due.into_iter().take(limit) {
+    for item in due.into_iter().take(resolved_limit) {
         if dry_run {
             println!(
                 "[DRY RUN] would send [{}] {} -> {}",
@@ -252,6 +266,32 @@ fn dispatch(dry_run: bool, limit: usize) -> Result<()> {
     }
 
     println!("Dispatch complete. Sent {} reminders.", sent_now);
+    Ok(())
+}
+
+fn config_check() -> Result<()> {
+    let cfg = load_config()?;
+
+    println!("Reminder config:\n");
+    println!("- default_channel: {}", cfg.reminders.default_channel);
+    println!(
+        "- default_recipient: {}",
+        cfg.reminders
+            .default_recipient
+            .as_deref()
+            .unwrap_or("<not set>")
+    );
+    println!("- max_dispatch_per_run: {}", cfg.reminders.max_dispatch_per_run);
+
+    if cfg.reminders.default_recipient.is_none() {
+        println!("\nWhat to configure next:");
+        println!("Set ~/.rewind/config.toml:");
+        println!("[reminders]");
+        println!("default_channel = \"imessage\"");
+        println!("default_recipient = \"+17373151963\"");
+        println!("max_dispatch_per_run = 10");
+    }
+
     Ok(())
 }
 
