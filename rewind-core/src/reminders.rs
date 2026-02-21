@@ -77,7 +77,14 @@ pub fn project_task_reminders(
         if send_at <= now {
             continue;
         }
-        let dedupe_key = format!("{}:{}:{}", task.id, send_at.date_naive(), i);
+        // Dedupe should be unique per concrete send slot, not per-day.
+        // This keeps repeated same-day plans from over-deduping and dropping legitimate sends.
+        let dedupe_key = format!(
+            "{}:{}:{}",
+            task.id,
+            send_at.timestamp(),
+            i
+        );
         out.push(ReminderIntent {
             intent_id: format!("ri-{}-{}", task.id, i),
             task_id: task.id.clone(),

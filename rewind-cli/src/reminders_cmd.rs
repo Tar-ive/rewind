@@ -151,6 +151,14 @@ fn plan(to: Option<String>, channel: Option<String>, limit: usize, due_now: bool
             if due_now {
                 ri.send_at_utc = now;
             }
+            // Final dedupe key is queue-specific (recipient/channel included).
+            ri.dedupe_key = format!(
+                "{}:{}:{}:{}",
+                ri.task_id,
+                ri.send_at_utc.timestamp(),
+                resolved_channel,
+                resolved_to
+            );
             if emitted.len() >= limit {
                 break;
             }
