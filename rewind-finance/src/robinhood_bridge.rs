@@ -50,20 +50,41 @@ fn script_path() -> PathBuf {
         .join("robinhood_bridge.py")
 }
 
+fn resolve_python() -> String {
+    if let Ok(py) = std::env::var("RH_PYTHON") {
+        if !py.trim().is_empty() {
+            return py;
+        }
+    }
+
+    let preferred = "/home/sadhikari/.openclaw/workspace/.venv-rh/bin/python";
+    if std::path::Path::new(preferred).exists() {
+        return preferred.to_string();
+    }
+
+    "python3".to_string()
+}
+
 fn run_bridge(args: &[&str]) -> Result<String> {
     let script = script_path();
     if !script.exists() {
         bail!("bridge script missing: {}", script.display());
     }
 
-    let output = Command::new("python3")
+    let python = resolve_python();
+
+    let output = Command::new(python)
         .arg(script)
         .args(args)
         .output()
         .context("failed to execute python bridge")?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !stdout.is_empty() {
+            bail!("python bridge failed: {stdout}");
+        }
         bail!("python bridge failed: {stderr}");
     }
 
