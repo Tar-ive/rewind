@@ -15,13 +15,13 @@ chrono = { workspace = true }
 anyhow = "1.0"
 
 # UniFFI for Swift bindings (optional, for iOS/macOS)
-# Uncomment when building xcframework for iOS
-# [dependencies.uniffi]
-# version = "0.28"
-# features = ["cli"]
+[dependencies.uniffi]
+version = "0.28"
+optional = true
 
 [features]
 default = []
+uniffi-bindings = ["dep:uniffi"]
 
 # Library mode for FFI
 [lib]
