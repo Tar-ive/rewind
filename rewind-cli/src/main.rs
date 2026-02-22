@@ -191,6 +191,32 @@ enum FinanceCommand {
         #[arg(long, default_value = "AMEX")]
         account: String,
     },
+
+    /// Experimental Robinhood connector (read-only)
+    Robinhood {
+        #[command(subcommand)]
+        command: RobinhoodCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RobinhoodCommand {
+    /// Check bridge/runtime status
+    Status,
+    /// Read holdings (read-only)
+    Holdings,
+    /// Read orders (read-only)
+    Orders {
+        /// Optional ISO date filter (YYYY-MM-DD)
+        #[arg(long)]
+        since: Option<String>,
+    },
+    /// Read holdings + orders and persist to vault (read-only)
+    Sync {
+        /// Optional ISO date filter (YYYY-MM-DD)
+        #[arg(long)]
+        since: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -378,6 +404,48 @@ async fn main() -> Result<()> {
                 // Quick integration smoke check
                 let expense_count = records.iter().filter(|r| r.is_expense()).count();
                 println!("\nRecords: {} (expenses: {})", records.len(), expense_count);
+            }
+            FinanceCommand::Robinhood { command } => {
+                println!("⚠️  Experimental connector: Robinhood unofficial via robin_stocks");
+                println!("🔒 Enforced mode: READ-ONLY (no write/trade endpoints)\n");
+
+                match command {
+                    RobinhoodCommand::Status => {
+                        let s = rewind_finance::robinhood_bridge::status()?;
+                        println!("ok={}", s.ok);
+                        println!("read_only={}", s.read_only);
+                        println!("python={}", s.python);
+                        println!("robin_stocks_installed={}", s.robin_stocks_installed);
+                        println!("message={}", s.message);
+                    }
+                    RobinhoodCommand::Holdings => {
+                        let holdings = rewind_finance::robinhood_bridge::fetch_holdings()?;
+                        println!("holdings={}", holdings.len());
+                        for h in holdings.iter().take(20) {
+                            println!("- {} qty={} avg_buy_price={:?}", h.symbol, h.quantity, h.average_buy_price);
+                        }
+                    }
+                    RobinhoodCommand::Orders { since } => {
+                        let orders = rewind_finance::robinhood_bridge::fetch_orders(since.as_deref())?;
+                        println!("orders={}", orders.len());
+                        for o in orders.iter().take(20) {
+                            println!("- {} {} {} status={} qty={} filled={}", o.symbol, o.side, o.order_type, o.status, o.quantity, o.filled_quantity);
+                        }
+                    }
+                    RobinhoodCommand::Sync { since } => {
+                        let data = rewind_finance::robinhood_bridge::fetch_all(since.as_deref())?;
+                        let raw = rewind_finance::vault_store::write_raw_orders_snapshot(&data.orders)?;
+                        let raw_ref = raw.to_string_lossy().to_string();
+                        let appended = rewind_finance::vault_store::append_normalized_orders(&data.orders, &raw_ref)?;
+                        let holdings_path = rewind_finance::vault_store::write_holdings_snapshot(&data.holdings)?;
+
+                        println!("holdings_fetched={}", data.holdings.len());
+                        println!("orders_fetched={}", data.orders.len());
+                        println!("orders_appended={}", appended);
+                        println!("raw_orders_snapshot={}", raw.display());
+                        println!("holdings_snapshot={}", holdings_path.display());
+                    }
+                }
             }
         },
 

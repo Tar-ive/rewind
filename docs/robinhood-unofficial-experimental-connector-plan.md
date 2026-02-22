@@ -1,76 +1,85 @@
-# Rewind Plan: Experimental Robinhood (Unofficial) Read-Only Connector + Vault Order Capture
+# Rewind Plan (Replanned): `robin_stocks`-based Experimental Robinhood Connector + Vault Order Capture
 
 **Date (UTC):** 2026-02-22  
-**Owner:** Rewind `rust-native` branch  
-**Scope:** Experimental integration only (read-only by default), with order details persisted into Rewind vault artifacts.
+**Input change:** Use `https://github.com/jmfernandes/robin_stocks` as the integration base.  
+**Scope:** Experimental + read-only by default; persist order details in Rewind vault.
 
 ---
 
-## 1) Current Status
+## 1) Status
 
-### Repo state
-- Branch: `rust-native`
-- Remote tracking: `origin/rust-native`
-- Local is **behind by 1 commit** (`ebabc98` on origin)
-- Working tree: clean except untracked `target` symlink
-
-### Codebase state relevant to this request
-- `rewind-finance` currently has AMEX ingestion + deterministic task emitter.
-- No existing Robinhood connector implementation in `rewind-finance`.
-- No production vault persistence module currently wired for finance provider artifacts.
-- `rewind-cli` has finance/calendar/reminders commands and is a good place to add connector commands.
-
-### Policy/risk status
-- `sanko/Robinhood` documents a private/unofficial API. It may break without notice and could violate platform terms.
-- Must be explicitly marked **experimental** and **opt-in**.
+- Prior plan was based on generic unofficial endpoints (`sanko/Robinhood` docs).
+- New direction: leverage `robin_stocks` Python library as an adapter layer for Robinhood account/holdings/order reads.
+- Repo branch (`rust-native`) is up to date with the doc commit already pushed.
 
 ---
 
-## 2) Goal
+## 2) Why this replan
 
-Enable Rewind to:
-1. Pull holdings/orders from unofficial Robinhood endpoints in an **experimental read-only mode**.
-2. Persist normalized order details into a local Rewind vault artifact store.
-3. Keep a strict safety posture: no order placement/cancel in this phase.
+Using `robin_stocks` gives:
+- A maintained Python wrapper with existing auth/session handling patterns.
+- Faster bootstrap vs building every HTTP call from scratch in Rust.
+- Coverage for holdings/orders/account data paths (subject to breakage from upstream changes).
 
----
-
-## 3) Proposed Architecture
-
-## Components
-1. **Connector module (rewind-finance)**
-   - `rewind-finance/src/robinhood_unofficial.rs`
-   - Handles auth/session + request wrappers + typed response parsing.
-
-2. **Vault persistence module (rewind-core or rewind-finance)**
-   - `rewind-finance/src/vault_store.rs` (or equivalent)
-   - File-backed JSONL/JSON storage in `~/.rewind/vault/finance/robinhood/`
-
-3. **CLI commands (rewind-cli)**
-   - `rewind finance robinhood sync --mode read-only`
-   - `rewind finance robinhood holdings`
-   - `rewind finance robinhood orders --since <date>`
-   - `rewind finance robinhood status`
+Tradeoff:
+- Adds a Python runtime dependency and subprocess boundary from Rust CLI.
 
 ---
 
-## 4) Vault Data Model (Order Details)
+## 3) Architecture (updated)
 
-Persist two layers:
+## A) Python bridge layer (new)
+Create a small script inside Rewind repo, e.g.:
+- `rewind-finance/scripts/robinhood_bridge.py`
 
-1. **Raw source snapshot** (for forensics/replay)
-- Path: `~/.rewind/vault/finance/robinhood/raw/orders/YYYY-MM-DDTHHMMSSZ.json`
-- Content: exact upstream response payload (with sensitive values redacted where needed)
+Responsibilities:
+1. Login/auth using `robin_stocks.robinhood`
+2. Fetch data (holdings, open/closed orders, account profile)
+3. Output strict JSON payloads to stdout (no secrets in logs)
 
-2. **Normalized order records** (for Rewind logic)
-- Path: `~/.rewind/vault/finance/robinhood/orders.jsonl`
-- One JSON object per order event/upsert
+## B) Rust connector wrapper
+In `rewind-finance` add module:
+- `src/robinhood_bridge.rs`
 
-Suggested normalized schema:
+Responsibilities:
+- Spawn Python bridge with controlled env vars
+- Parse/validate JSON responses
+- Normalize to Rewind schemas
+- Hand off to vault writer
+
+## C) Vault persistence
+Store both raw and normalized:
+- Raw snapshots: `~/.rewind/vault/finance/robinhood/raw/orders/<timestamp>.json`
+- Normalized ledger: `~/.rewind/vault/finance/robinhood/orders.jsonl`
+- Holdings snapshots: `~/.rewind/vault/finance/robinhood/holdings/<date>.json`
+
+---
+
+## 4) CLI commands (updated)
+
+Add to `rewind-cli`:
+
+```bash
+rewind finance robinhood status
+rewind finance robinhood holdings
+rewind finance robinhood orders --since 2026-01-01
+rewind finance robinhood sync --mode read-only
+```
+
+`sync` should:
+1. fetch holdings/orders via Python bridge,
+2. write raw snapshots,
+3. append normalized order records (idempotent upsert).
+
+---
+
+## 5) Vault schema (order details)
+
+Use normalized JSONL schema (same core as previous plan):
 
 ```json
 {
-  "provider": "robinhood_unofficial",
+  "provider": "robinhood_unofficial_robin_stocks",
   "account_id": "string",
   "order_id": "string",
   "client_order_id": "string|null",
@@ -93,103 +102,67 @@ Suggested normalized schema:
 }
 ```
 
-Also keep holdings snapshots:
-- `~/.rewind/vault/finance/robinhood/holdings/YYYY-MM-DD.json`
+Idempotency key: `(provider, account_id, order_id, updated_at)`.
 
 ---
 
-## 5) Safety Controls (Required)
+## 6) Safety controls (unchanged, required)
 
-1. **Default read-only hard lock**
-   - No POST/PUT/PATCH/DELETE calls in this phase.
-   - Build-time and runtime guard.
-
-2. **Feature flag gate**
-   - Example: `finance.experimental_robinhood_unofficial = true`
-   - Command errors out unless explicitly enabled.
-
-3. **Secrets handling**
-   - Store credentials/tokens in `~/.rewind/auth.json` (or dedicated secure file) with minimum scope.
-   - Never print tokens/session cookies in logs.
-
-4. **Kill switch**
-   - Config toggle to disable connector immediately.
-
-5. **Explicit warning banner**
-   - CLI output on each run: unofficial/private API warning.
+1. **Read-only hard lock** in this phase (no order placement/cancel endpoints).
+2. **Feature flag** required to enable connector:
+   - `finance.experimental_robinhood_unofficial = true`
+3. **Secret hygiene**:
+   - credentials via env/auth file only,
+   - never print token/session/2FA secrets.
+4. **Kill switch** config toggle.
+5. **CLI warning banner**: unofficial/private API risk.
 
 ---
 
-## 6) Implementation Plan (Phased)
+## 7) Phased implementation (replanned)
 
-### Phase 0 — Guardrails + scaffolding
-- Add connector feature flag and warning text.
-- Add CLI command skeletons for `status`, `holdings`, `orders`, `sync`.
-- Add vault paths + directory bootstrap helpers.
+### Phase 0: Scaffold + warnings
+- Add command stubs + feature flag + warnings.
+- Add vault path bootstrap.
 
-### Phase 1 — Read-only fetch
-- Implement authenticated read requests needed for:
-  - account/portfolio context
-  - holdings
-  - historical orders
-- Add retry/backoff and response validation.
+### Phase 1: Python bridge MVP
+- Implement `status`, `holdings`, `orders` JSON outputs.
+- Validate bridge error handling and deterministic output schema.
 
-### Phase 2 — Vault persistence
-- Write raw payload snapshots with timestamped names.
-- Normalize and append order records into `orders.jsonl`.
-- Idempotency rule: upsert by `(provider, account_id, order_id, updated_at)`.
+### Phase 2: Rust integration + persistence
+- Wire bridge execution in `rewind-finance`.
+- Write raw snapshots + normalized `orders.jsonl`.
+- Implement dedupe/idempotent upsert.
 
-### Phase 3 — Rewind integration
-- Convert normalized orders/holdings to internal finance records/signals.
-- Surface summary in `rewind finance robinhood sync` output:
-  - counts (new/updated)
-  - latest order status breakdown
-  - holdings exposure summary
+### Phase 3: Rewind signal integration
+- Convert holdings/orders into Rewind finance signals/tasks.
+- Add summary output for sync command.
 
-### Phase 4 — Tests + docs
-- Unit tests for normalization and idempotent writes.
-- Fixture-based tests for parser stability.
-- User docs: setup, risks, troubleshooting, disable instructions.
+### Phase 4: Tests + hardening
+- Fixture tests for parser + normalization.
+- Redaction tests for logs.
+- Docs for setup/disable/troubleshooting.
 
 ---
 
-## 7) CLI UX (Draft)
+## 8) Acceptance criteria
 
-```bash
-rewind finance robinhood status
-rewind finance robinhood holdings
-rewind finance robinhood orders --since 2026-01-01
-rewind finance robinhood sync --mode read-only
-```
-
-Example sync output:
-- `Fetched holdings: 14`
-- `Fetched orders: 238 (new: 4, updated: 9)`
-- `Vault write: ~/.rewind/vault/finance/robinhood/orders.jsonl`
+- [ ] Can fetch holdings through `robin_stocks` bridge.
+- [ ] Can fetch order history and persist into Rewind vault.
+- [ ] No duplicates on repeated sync runs.
+- [ ] Read-only lock enforced.
+- [ ] Secrets are never logged.
 
 ---
 
-## 8) Acceptance Criteria
+## 9) Non-goals (still)
 
-- [ ] Connector works in explicit experimental read-only mode.
-- [ ] Holdings are fetchable from CLI.
-- [ ] Order details are stored in vault raw + normalized formats.
-- [ ] Re-running sync is idempotent (no duplicate logical orders).
-- [ ] No secrets are printed in logs.
-- [ ] One-command kill switch disables connector.
+- No trade execution/cancel in this phase.
+- No guarantee of API stability (unofficial surface).
+- No production SLA.
 
 ---
 
-## 9) Non-Goals (for now)
+## 10) Next action
 
-- No trade placement/cancellation.
-- No production guarantee for unofficial endpoints.
-- No mobile/web automation fallback in this phase.
-
----
-
-## 10) Recommended Next Action
-
-1. Pull latest remote commit to align branch.  
-2. Implement **Phase 0 + Phase 1** in one PR.  
-3. Add **Phase 2 vault persistence** immediately after, so order detail retention is guaranteed early.
+Implement **Phase 0 + Phase 1** in a single PR, then **Phase 2** immediately after so vault order capture is live as early as possible.

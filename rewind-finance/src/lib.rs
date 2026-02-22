@@ -3,6 +3,8 @@
 pub mod amex_parser;
 pub mod category_rules;
 pub mod task_emitter;
+pub mod robinhood_bridge;
+pub mod vault_store;
 
 pub use amex_parser::{AmexTransaction, parse_amex_csv};
 pub use category_rules::categorize;
