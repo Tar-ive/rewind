@@ -1,0 +1,34 @@
+[package]
+name = "rewind-ffi"
+version = "0.1.0"
+edition = "2024"
+authors = ["Tarive <tarive22@gmail.com>"]
+license = "MIT"
+description = "UniFFI bridge for rewind-core: Exposing Rust scheduling engine to Swift/iOS"
+repository = "https://github.com/Tar-ive/rewind"
+
+[dependencies]
+rewind-core = { path = "../rewind-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+anyhow = "1.0"
+
+# UniFFI for Swift bindings (optional, for iOS/macOS)
+# Uncomment when building xcframework for iOS
+# [dependencies.uniffi]
+# version = "0.28"
+# features = ["cli"]
+
+[features]
+default = []
+
+# Library mode for FFI
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[[bin]]
+name = "rewind_ffi"
+path = "src/main.rs"
+
+[dev-dependencies]

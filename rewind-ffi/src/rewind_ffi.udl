@@ -1,0 +1,197 @@
+namespace rewind_ffi {
+};
+
+// Core enums and types
+enum TaskStatus {
+    "Backlog",
+    "Active",
+    "InProgress",
+    "Completed",
+    "SwappedOut",
+    "Delegated",
+};
+
+enum Priority {
+    "P0Urgent",
+    "P1Important",
+    "P2Normal",
+    "P3Background",
+};
+
+enum GoalTimeframe {
+    "Long",
+    "Medium",
+    "Short",
+};
+
+enum Category {
+    "Tuition",
+    "CreditCard",
+    "FamilySupport",
+    "Savings",
+    "Housing",
+    "Food",
+    "Subscriptions",
+    "Income",
+    "Uncategorized",
+};
+
+enum GoalTag {
+    "Long",
+    "Medium",
+    "Short",
+};
+
+enum ReminderSource {
+    "TaskCreation",
+    "Disruption",
+    "UserRequest",
+};
+
+enum ReminderPolicy {
+    "Urgent",
+    "Normal",
+    "Background",
+};
+
+enum DisruptionSeverity {
+    "Minor",
+    "Major",
+    "Critical",
+};
+
+enum RouteConfidence {
+    "High",
+    "Medium",
+    "Low",
+    "None",
+};
+
+// Core data structures
+dictionary Task {
+    string id;
+    string title;
+    TaskStatus status;
+    Priority priority;
+    i32 estimated_duration;
+    i32 energy_cost;
+    i32 cognitive_load;
+    string? deadline;  // ISO 8601 datetime
+    i32 deadline_urgency;
+};
+
+dictionary GoalDescriptor {
+    string name;
+    f64 horizon_years;
+    f64 idea_confidence;
+    GoalTimeframe timeframe;
+    string priority;
+};
+
+dictionary ReadinessScore {
+    f64 current_score;
+    f64 target_score;
+    i32 signal_boosts;
+    bool confidence_adjusted;
+};
+
+dictionary UserGoal {
+    string description;
+    GoalTimeframe horizon;
+};
+
+dictionary FinanceRecord {
+    string id;
+    string date;
+    string description;
+    f64 amount;
+    string account;
+    Category category;
+    GoalTag goal_tag;
+    string goal_name;
+};
+
+dictionary DisruptionEvent {
+    DisruptionSeverity severity;
+    u32 cascade_count;
+    string reason;
+    string context_event_id;
+    string timestamp_utc;
+};
+
+dictionary UpdatedSchedule {
+    string day;
+    sequence<string> task_order;
+    sequence<string> swapped_out;
+    sequence<string> swapped_in;
+    i32 energy_level;
+};
+
+dictionary ReminderIntent {
+    string intent_id;
+    string task_id;
+    string title;
+    string body;
+    string send_at_utc;
+    string dedupe_key;
+};
+
+dictionary RouteResult {
+    i32? goal_index;
+    RouteConfidence confidence;
+    string reason;
+};
+
+// FFI result wrapper
+dictionary FfiResult {
+    boolean success;
+    string data;
+    i32 error_code;
+};
+
+// Main interface
+interface RewindFFI {
+    // Goals
+    [Throws=FfiException]
+    FfiResult parse_goals_json(string goals_markdown);
+
+    [Throws=FfiException]
+    FfiResult plan_goal_steps_json(
+        string goal_json,
+        string explicit_signals_json,
+        string implicit_signals_json
+    );
+
+    // Finance
+    [Throws=FfiException]
+    FfiResult categorize_transaction_json(string description);
+
+    // Task routing
+    [Throws=FfiException]
+    FfiResult route_task_json(string task_json, string goals_json);
+
+    // Scheduling
+    [Throws=FfiException]
+    FfiResult handle_disruption_json(
+        string disruption_json,
+        string active_tasks_json,
+        string backlog_tasks_json,
+        i32 energy_level
+    );
+
+    // Reminders
+    [Throws=FfiException]
+    FfiResult project_reminders_json(
+        string task_json,
+        string source_str,
+        string policy_str
+    );
+};
+
+[Error]
+enum FfiException {
+    "JsonError",
+    "ParseError",
+    "SerializationError",
+    "SchedulingError",
+};
