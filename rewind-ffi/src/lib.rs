@@ -51,8 +51,50 @@ impl FfiResult {
 }
 
 // ============================================================================
-// JSON-based wrapper functions (simpler for FFI)
+// UniFFI export-ready API (gated by feature) + JSON wrappers
 // ============================================================================
+
+#[cfg_attr(feature = "uniffi-bindings", uniffi::export)]
+pub fn plan_day(
+    active_tasks_json: &str,
+    backlog_tasks_json: &str,
+    energy_level: i32,
+) -> FfiResult {
+    handle_disruption_json(
+        r#"{"severity":"Minor","cascade_count":0,"reason":"manual_plan","context_event_id":"ffi","timestamp_utc":"2026-01-01T00:00:00Z"}"#,
+        active_tasks_json,
+        backlog_tasks_json,
+        energy_level,
+    )
+}
+
+#[cfg_attr(feature = "uniffi-bindings", uniffi::export)]
+pub fn run_sts(tasks_json: &str, _energy_level: i32) -> FfiResult {
+    let tasks: Result<Vec<Task>, _> = serde_json::from_str(tasks_json);
+    let Ok(mut tasks) = tasks else {
+        return FfiResult::err("Invalid tasks JSON".to_string(), 6001);
+    };
+
+    tasks.sort_by_key(|t| (t.priority as i32, -t.deadline_urgency));
+    let ordered_ids: Vec<String> = tasks.into_iter().map(|t| t.id).collect();
+    FfiResult::ok(serde_json::to_string(&ordered_ids).unwrap_or_else(|_| "[]".to_string()))
+}
+
+#[cfg_attr(feature = "uniffi-bindings", uniffi::export)]
+pub fn run_mts(active_tasks_json: &str, backlog_tasks_json: &str, _freed_minutes: i32) -> FfiResult {
+    let active: Result<Vec<Task>, _> = serde_json::from_str(active_tasks_json);
+    let backlog: Result<Vec<Task>, _> = serde_json::from_str(backlog_tasks_json);
+    let (Ok(active), Ok(backlog)) = (active, backlog) else {
+        return FfiResult::err("Invalid active/backlog JSON".to_string(), 7001);
+    };
+
+    let payload = serde_json::json!({
+        "swapped_in": backlog.into_iter().take(1).map(|t| t.id).collect::<Vec<_>>(),
+        "swapped_out": Vec::<String>::new(),
+        "remaining_active": active,
+    });
+    FfiResult::ok(serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()))
+}
 
 /// Parse goals from a markdown string and return JSON array
 /// 
@@ -69,6 +111,7 @@ impl FfiResult {
 /// ```
 ///
 /// Returns: JSON array of UserGoal objects
+#[cfg_attr(feature = "uniffi-bindings", uniffi::export)]
 pub fn parse_goals_json(goals_markdown: &str) -> FfiResult {
     let goals = parse_goals_md(goals_markdown);
     match serde_json::to_string(&goals) {
@@ -82,6 +125,7 @@ pub fn parse_goals_json(goals_markdown: &str) -> FfiResult {
 /// Input: transaction description (e.g., "AMEX payment", "ZELLE MOM", "TUITION")
 /// 
 /// Returns: JSON object with category, goal_tag, and goal_name
+#[cfg_attr(feature = "uniffi-bindings", uniffi::export)]
 pub fn categorize_transaction_json(description: &str) -> FfiResult {
     let result = categorize(description);
     match serde_json::to_string(&serde_json::json!({
@@ -114,6 +158,7 @@ pub fn categorize_transaction_json(description: &str) -> FfiResult {
 /// ```
 ///
 /// Returns: JSON RouteResult with goal_index, confidence, reason
+#[cfg_attr(feature = "uniffi-bindings", uniffi::export)]
 pub fn route_task_json(task_title: &str, goals_json: &str) -> FfiResult {
     // Parse goals (expecting UserGoal format)
     let goals: Result<Vec<UserGoal>, _> = serde_json::from_str(goals_json);
@@ -161,6 +206,7 @@ pub fn route_task_json(task_title: &str, goals_json: &str) -> FfiResult {
 /// ```
 ///
 /// Returns: JSON with steps (string array) and readiness score
+#[cfg_attr(feature = "uniffi-bindings", uniffi::export)]
 pub fn plan_goal_steps_json(
     goal_json: &str,
     _explicit_signals_json: &str,
@@ -210,6 +256,7 @@ pub fn plan_goal_steps_json(
 /// ```
 ///
 /// Returns: JSON UpdatedSchedule with task_order, swapped_out, swapped_in, energy_level
+#[cfg_attr(feature = "uniffi-bindings", uniffi::export)]
 pub fn handle_disruption_json(
     disruption_json: &str,
     active_tasks_json: &str,
@@ -269,6 +316,7 @@ pub fn handle_disruption_json(
 /// ```
 ///
 /// Returns: JSON array of ReminderIntent objects
+#[cfg_attr(feature = "uniffi-bindings", uniffi::export)]
 pub fn project_reminders_json(
     task_json: &str,
     source_str: &str,
