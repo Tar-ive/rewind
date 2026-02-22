@@ -1665,6 +1665,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rewind-ffi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "rewind-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rewind-finance"
 version = "0.1.13"
 dependencies = [

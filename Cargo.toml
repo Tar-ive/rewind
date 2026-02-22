@@ -4,6 +4,7 @@ members = [
     "rewind-ingest",
     "rewind-finance",
     "rewind-cli",
+    "rewind-ffi",
 ]
 resolver = "3"
 
