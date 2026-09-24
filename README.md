@@ -270,7 +270,7 @@ python -m src.agents.factory
 cd frontend && npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) for the landing page, or [http://localhost:3000/dashboard](http://localhost:3000/dashboard) for the app.
 
 ---
 
@@ -370,12 +370,15 @@ rewind/
 │   └── server.py             # FastAPI + WebSocket server
 ├── frontend/src/
 │   ├── app/              # Pages
-│   │   ├── page.tsx          # Dashboard (Today + Backlog + Voice)
-│   │   ├── calendar/         # Google Calendar view
-│   │   ├── integrations/     # OAuth connections
-│   │   ├── profile/          # Behavioral insights
-│   │   └── auth/callback/    # OAuth callback
+│   │   ├── page.tsx          # Landing page (problem, idea, features, team)
+│   │   └── (app)/            # App shell with sidebar + voice agent
+│   │       ├── dashboard/        # Dashboard (Today + Backlog + Voice)
+│   │       ├── calendar/         # Google Calendar view
+│   │       ├── integrations/     # OAuth connections
+│   │       ├── profile/          # Behavioral insights
+│   │       └── auth/callback/    # OAuth callback
 │   ├── components/
+│   │   ├── landing/          # Landing page sections + graphics
 │   │   ├── VoiceAgent.tsx    # ElevenLabs voice interface
 │   │   ├── TaskInput.tsx     # Task creation form
 │   │   ├── DraftReview.tsx   # GhostWorker draft review

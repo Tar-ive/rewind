@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
   {
-    href: "/",
+    href: "/dashboard",
     label: "Dashboard",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -54,18 +54,15 @@ export default function Sidebar() {
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900">
       {/* Logo */}
-      <div className="px-5 py-5">
+      <Link href="/" className="px-5 py-5">
         <h1 className="text-sm font-bold tracking-[0.25em] text-white">REWIND</h1>
         <p className="text-[10px] text-zinc-600">Life OS</p>
-      </div>
+      </Link>
 
       {/* Nav */}
       <nav className="mt-2 flex flex-col gap-0.5 px-3">
         {NAV_ITEMS.map((item) => {
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+          const isActive = pathname.startsWith(item.href);
 
           return (
             <Link
