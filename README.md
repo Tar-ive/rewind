@@ -16,7 +16,9 @@
 
 # Rewind — AI-Powered Agentic Scheduling Engine
 
-Rewind is a multi-agent system that autonomously manages your schedule using an OS-inspired three-tier scheduling engine. It monitors your Google Calendar, Gmail, and Slack in real-time, detects disruptions, rebalances your day, and can even draft and send emails or messages on your behalf — all while learning your behavioral patterns and energy levels.
+**Every productivity tool helps you make a plan. Rewind is the one that helps when the plan breaks.**
+
+Rewind is an operating system for your life, built for people with ADHD. It is a multi-agent system that manages your schedule with an OS-inspired three-tier scheduling engine. It monitors your Google Calendar, Gmail, and Slack in real-time, detects disruptions, rebalances your day, and can even draft and send emails or messages on your behalf — all while learning your behavioral patterns and energy levels.
 
 Built with [Fetch.ai uAgents](https://uagents.fetch.ai/docs), [Composio](https://composio.dev), and [ElevenLabs](https://elevenlabs.io) voice AI.
 
@@ -46,6 +48,41 @@ Built with [Fetch.ai uAgents](https://uagents.fetch.ai/docs), [Composio](https:/
 | <img src="docs/assets/screenshots/profile.png" alt="Profile with success plot, behavioral traits, energy curve, adherence score"> | <img src="docs/assets/screenshots/integrations.png" alt="Google Calendar, Gmail, Slack and LinkedIn integrations"> |
 | **Schedule through Meta glasses** | **Voice via Meta glasses** |
 | <img src="docs/assets/screenshots/glasses-hud.jpg" alt="Schedule seen through Meta Ray-Ban glasses"> | <img src="docs/assets/screenshots/glasses-voice.jpg" alt="Issuing a voice command through Meta Ray-Ban glasses"> |
+
+---
+
+## The Problem
+
+**6.1 million adults in the U.S. are diagnosed with ADHD.** Diagnosis isn't the hard part. With the executive dysfunction that comes with ADHD, starting can feel impossible even when you know exactly what you need to do. The planning isn't the problem; the problem is what happens when the plan breaks.
+
+Two members of our team live with ADHD. We've tried every productivity system: Notion databases, time-blocking in Google Calendar, even gamified to-do apps. They all fail the same way: **they help you plan, then abandon you the moment something goes wrong.**
+
+> A meeting runs 15 minutes over. You space out for 10. By the time you've replanned, 45 minutes are gone, and your momentum with it.
+
+That is exactly the moment Rewind targets: **the 15–30 minutes after a disruption**, when the plan breaks and you're silently stuck, with no idea what to do next.
+
+## The Idea: An Operating System for Your Life
+
+We realized this isn't a willpower problem. It's a working-memory problem, and computers solved a version of it long ago. When processes compete for limited CPU time and interrupts fire unexpectedly, an operating system doesn't panic. It relies on scheduling algorithms:
+
+- **Long-Term Schedulers** plan allocation.
+- **Medium-Term Schedulers** handle swaps.
+- **Short-Term Schedulers** decide what runs right now.
+
+They don't delete processes when something changes; they adapt and reschedule them. Rewind applies the same model to human productivity.
+
+### Built from clinical research, not a feature list
+
+Each workflow maps to an ADHD challenge documented in clinical research:
+
+| Rewind workflow | ADHD challenge it addresses |
+|---|---|
+| **Disruption Detection** | Disruption paralysis |
+| **Auto-Rescheduling** | Cognitive overload from replanning |
+| **Estimation Correction** | Time blindness |
+| **Energy-Aware Scheduling** | Working memory limitations |
+
+**Real-time response:** from the moment a meeting runs over to a nudge appearing on screen takes **under 3 seconds**. That's fast enough to catch someone before they spiral into doom-scrolling.
 
 ---
 
@@ -95,7 +132,7 @@ Built with [Fetch.ai uAgents](https://uagents.fetch.ai/docs), [Composio](https:/
 Polls Google Calendar, Gmail, and Slack via Composio every 60 seconds. Detects context changes (meetings ending early, new emails, schedule conflicts) and emits `ContextChangeEvent` messages downstream.
 
 ### Disruption Detector
-Classifies context changes by severity (minor/major/critical). Calculates freed or lost minutes from schedule changes. Queries the Profiler Agent for user patterns to improve classification. Emits `DisruptionEvent` to the Scheduler Kernel.
+Classifies context changes by severity: minor (a meeting ran 5 min over), major (a meeting was cancelled), or critical (an urgent Slack from your manager). Calculates freed or lost minutes from schedule changes. Queries the Profiler Agent for user patterns to improve classification. Emits `DisruptionEvent` to the Scheduler Kernel.
 
 ### Scheduler Kernel
 The brain of Rewind. Orchestrates the three-tier scheduling engine:
@@ -106,13 +143,13 @@ The brain of Rewind. Orchestrates the three-tier scheduling engine:
 Auto-delegates P3 (low priority) tasks to GhostWorker when energy is low.
 
 ### Profiler Agent
-Learns implicit behavioral patterns from task completion logs, schedule adherence, and external data (LinkedIn, GitHub, daily reflections). Outputs a `UserProfile` with peak hours, average task durations, energy curve, adherence score, distraction patterns, and estimation bias. Categorizes users into archetypes: Compounding Builder, Reliable Operator, Emerging Talent, or At Risk.
+Learns implicit behavioral patterns (such as your *actual* peak hours, not when you think you're productive, and how much you underestimate tasks) from task completion logs, schedule adherence, and external data (LinkedIn, GitHub, daily reflections). Outputs a `UserProfile` with peak hours, average task durations, energy curve, adherence score, distraction patterns, and estimation bias. Categorizes users into archetypes: Compounding Builder, Reliable Operator, Emerging Talent, or At Risk.
 
 ### Energy Monitor
-Infers energy level (1-5) from behavioral signals: circadian baseline (time-of-day), task completion velocity, and user-reported energy (with 2-hour decay). Caches in Redis for real-time scheduling decisions.
+Infers energy level (1-5) from behavioral signals: circadian baseline (time-of-day), task completion velocity, and user-reported energy (with 2-hour decay). Caches in Redis for real-time scheduling decisions. The goal: never assign a task your brain can't handle right now.
 
 ### GhostWorker
-Autonomously executes delegated tasks — email replies, Slack messages, LinkedIn posts, appointment cancellations. Drafts are created for user approval before execution. Uses Composio for delivery. Supports FET micropayments via Fetch.ai Payment Protocol.
+Autonomously executes delegated tasks — email replies, Slack messages, LinkedIn posts, appointment cancellations. Drafts are created for approval before execution, and you approve them with one tap. Uses Composio for delivery. Supports FET micropayments via Fetch.ai Payment Protocol.
 
 ### Reminder Agent
 LLM-powered proactive notifications via Claude. Evaluates schedule context every 120 seconds and generates contextual reminders (upcoming tasks, check-ins, transitions). Respects snooze periods and cooldowns.
@@ -125,7 +162,7 @@ Inspired by Linux OS process scheduling:
 
 | Tier | Trigger | Purpose | Algorithm |
 |------|---------|---------|-----------|
-| **LTS** | Daily / on-demand | Admit tasks from backlog to active schedule | Weighted scoring (deadline urgency 45%, priority 30%, peak hours 15%, SJF duration 15%) + bin-packing |
+| **LTS** | Daily / on-demand | Admit tasks from backlog to active schedule | Weighted scoring (deadline urgency 40%, priority 30%, peak hours 15%, SJF duration 15%) + estimation-bias correction + bin-packing |
 | **MTS** | Every disruption | Swap tasks between active and backlog | SWAP-IN (freed time) / SWAP-OUT (lost time) with energy-aware filtering |
 | **STS** | Continuous | Order active tasks for execution | 4-level MLFQ (P0-P3), deadline urgency sorting, energy constraints, auto-delegation |
 
@@ -392,6 +429,12 @@ Scheduler Kernel ──DelegationTask──▶ GhostWorker
 GhostWorker ──TaskCompletion──▶ Scheduler Kernel
 Reminder Agent ──ReminderNotification──▶ Frontend (Redis → WebSocket)
 ```
+
+---
+
+## What We Learned
+
+**Research-first design produces better systems than feature-first design.** When we started by listing "cool features," we built things nobody needed. When we started from the specific cognitive failure points (disruption paralysis, cognitive overload, time blindness), the features followed naturally. The research constrained us in productive ways, and it's why we're proud of what we built: a tool that can change how millions of people with ADHD get through their work.
 
 ---
 
