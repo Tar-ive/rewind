@@ -3,6 +3,12 @@
 </p>
 
 <p align="center">
+  <a href="https://rewind-tan.vercel.app"><b>Website</b></a> ·
+  <a href="https://rewind-tan.vercel.app/dashboard"><b>Dashboard</b></a> ·
+  <a href="#screenshots"><b>Screenshots</b></a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI">
   <img src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js 16">
