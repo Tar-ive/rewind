@@ -303,12 +303,12 @@ export default function ProfilePage() {
                     borderRadius: "8px",
                     fontSize: "12px",
                   }}
-                  formatter={(value: number) => value.toFixed(2)}
+                  formatter={(value) => Number(value).toFixed(2)}
                 />
                 <Scatter
                   data={scatterData}
                   fill="#3b82f6"
-                  shape={(props: { cx: number; cy: number }) => (
+                  shape={(props: { cx?: number; cy?: number }) => (
                     <circle cx={props.cx} cy={props.cy} r={10} fill="#3b82f6" stroke="#60a5fa" strokeWidth={2} />
                   )}
                 />
@@ -497,7 +497,7 @@ export default function ProfilePage() {
                       borderRadius: "8px",
                       fontSize: "12px",
                     }}
-                    formatter={(value: number) => value.toFixed(3)}
+                    formatter={(value) => Number(value).toFixed(3)}
                   />
                   <Line
                     type="monotone"
@@ -541,7 +541,7 @@ export default function ProfilePage() {
                       borderRadius: "8px",
                       fontSize: "12px",
                     }}
-                    formatter={(value: number) => `${value}%`}
+                    formatter={(value) => `${value}%`}
                   />
                   <Bar dataKey="probability" fill="#ef4444" fillOpacity={0.6} radius={[4, 4, 0, 0]} />
                 </BarChart>

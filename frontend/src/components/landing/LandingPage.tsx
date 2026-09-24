@@ -100,12 +100,27 @@ const steps = [
   { agent: "You", text: "See the one next thing to do, in under 3 seconds." },
 ];
 
-// Add a `role` (e.g. "SWE Intern @ Company") to show a line under the name.
-const team: { name: string; photo: string; role?: string }[] = [
-  { name: "Saksham Adhikari", photo: "/images/team/saksham.jpg" },
-  { name: "Kusum Bhattarai Sharma", photo: "/images/team/kusum.jpg" },
-  { name: "Himavanth Karpurapu", photo: "/images/team/himavanth.jpg" },
-  { name: "Pranavi Rohit", photo: "/images/team/pranavi.jpg" },
+const team = [
+  {
+    name: "Saksham Adhikari",
+    photo: "/images/team/saksham.jpg",
+    roles: ["2x Intern @ AskSLM", "6x Hackathon Winner", "Google TPU Research Cloud Grantee"],
+  },
+  {
+    name: "Kusum Bhattarai Sharma",
+    photo: "/images/team/kusum.jpg",
+    roles: ["4x Hackathon Winner", "AI Research @ THRC"],
+  },
+  {
+    name: "Himavanth Karpurapu",
+    photo: "/images/team/himavanth.jpg",
+    roles: ["MS CS @ SJSU", "Amazon Web Services ABW Grant Scholar"],
+  },
+  {
+    name: "Pranavi Rohit",
+    photo: "/images/team/pranavi.jpg",
+    roles: ["ECE & AI @ CMU", "Agentic AI @ Boeing"],
+  },
 ];
 
 function Arrow() {
@@ -329,7 +344,11 @@ export default function LandingPage() {
                   className="mx-auto mb-6 h-32 w-32 rounded-full border-4 border-[#1F1529] object-cover md:h-36 md:w-36"
                 />
                 <h3 className="text-lg font-semibold text-orange-400 md:text-xl">{member.name}</h3>
-                {member.role && <p className="mt-2 text-sm text-stone-300">{member.role}</p>}
+                <ul className="mt-2 space-y-1 text-sm text-stone-300">
+                  {member.roles.map((role) => (
+                    <li key={role}>{role}</li>
+                  ))}
+                </ul>
               </Reveal>
             ))}
           </div>
