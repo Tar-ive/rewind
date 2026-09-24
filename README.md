@@ -1,8 +1,51 @@
+<p align="center">
+  <img src="docs/assets/banner.png" alt="Rewind — your day, scheduled like an OS" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js 16">
+  <img src="https://img.shields.io/badge/Fetch.ai-uAgents-1D2B53?style=flat-square" alt="Fetch.ai uAgents">
+  <img src="https://img.shields.io/badge/Composio-integrations-6C47FF?style=flat-square" alt="Composio">
+  <img src="https://img.shields.io/badge/ElevenLabs-voice-000000?style=flat-square&logo=elevenlabs&logoColor=white" alt="ElevenLabs">
+  <img src="https://img.shields.io/badge/Claude-Anthropic-D97757?style=flat-square&logo=anthropic&logoColor=white" alt="Claude">
+  <img src="https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License">
+</p>
+
 # Rewind — AI-Powered Agentic Scheduling Engine
 
 Rewind is a multi-agent system that autonomously manages your schedule using an OS-inspired three-tier scheduling engine. It monitors your Google Calendar, Gmail, and Slack in real-time, detects disruptions, rebalances your day, and can even draft and send emails or messages on your behalf — all while learning your behavioral patterns and energy levels.
 
 Built with [Fetch.ai uAgents](https://uagents.fetch.ai/docs), [Composio](https://composio.dev), and [ElevenLabs](https://elevenlabs.io) voice AI.
+
+<table>
+  <tr>
+    <td width="36%" valign="top">
+      <img src="docs/assets/demo-glasses.gif" alt="Voice commands through Meta Ray-Ban glasses">
+      <p align="center"><sub><b>Voice control through Meta Ray-Ban glasses</b></sub></p>
+    </td>
+    <td width="64%" valign="top">
+      <img src="docs/assets/demo-ghostworker.gif" alt="GhostWorker drafts and sends an email from the schedule">
+      <p align="center"><sub><b>The Scheduler Kernel hands off a task, GhostWorker drafts the email, you approve it, it gets sent</b></sub></p>
+    </td>
+  </tr>
+</table>
+
+---
+
+## Screenshots
+
+| Dashboard | Agent activity |
+|:---:|:---:|
+| <img src="docs/assets/screenshots/dashboard.png" alt="Dashboard with today's prioritized tasks and backlog"> | <img src="docs/assets/screenshots/agent-activity.png" alt="Agent activity feed with Scheduler Kernel and GhostWorker events"> |
+| **GhostWorker draft review** | **Calendar** |
+| <img src="docs/assets/screenshots/ghostworker-draft.png" alt="Pending email draft awaiting approval"> | <img src="docs/assets/screenshots/calendar.png" alt="Weekly calendar view"> |
+| **Profile (Profiler Agent)** | **Integrations (Composio)** |
+| <img src="docs/assets/screenshots/profile.png" alt="Profile with success plot, behavioral traits, energy curve, adherence score"> | <img src="docs/assets/screenshots/integrations.png" alt="Google Calendar, Gmail, Slack and LinkedIn integrations"> |
+| **Schedule through Meta glasses** | **Voice via Meta glasses** |
+| <img src="docs/assets/screenshots/glasses-hud.jpg" alt="Schedule seen through Meta Ray-Ban glasses"> | <img src="docs/assets/screenshots/glasses-voice.jpg" alt="Issuing a voice command through Meta Ray-Ban glasses"> |
 
 ---
 
@@ -130,7 +173,7 @@ Inspired by Linux OS process scheduling:
 ### 1. Install
 
 ```bash
-git clone https://github.com/your-org/rewind.git
+git clone https://github.com/Tar-ive/rewind.git
 cd rewind
 
 # Backend
@@ -305,6 +348,7 @@ rewind/
 │       ├── useWebSocket.ts       # Real-time connection
 │       └── useElevenLabsAgent.ts # Voice agent hook
 ├── data/                 # LinkedIn exports, goals, reflections
+├── docs/assets/          # Banner, demo GIFs, screenshots
 ├── .env                  # Configuration
 └── pyproject.toml        # Python dependencies
 ```
